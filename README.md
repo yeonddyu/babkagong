@@ -41,3 +41,23 @@ Mock 단위 테스트 (기본):
 ```bash
 .venv/bin/python -m scripts.print_tools
 ```
+
+외부 API 실제 연결 검증 (키는 마스킹되어 출력):
+
+```bash
+.venv/bin/python -m scripts.verify_apis
+```
+
+## 문서
+
+- [docs/tool_spec.md](docs/tool_spec.md) — Tool 명세 (F3001~F3004)
+- [docs/api_verification.md](docs/api_verification.md) — API 실제 연결 검증 기록
+
+## 현재 상태 (STEP 1)
+
+| 요구사항 | Mock 단위 테스트 | 실제 API 통합 검증 |
+|---|---|---|
+| F3001 Tool 명세 정의 및 등록 | PASS | 해당 없음 |
+| F3002 음식점 후보 조회 | PASS | BLOCKED (레드테이블·서울 개인 키 미발급, 서울 sample 키 호출만 PASS) |
+| F3003 음식점 상세정보 조회 | PASS | BLOCKED (레드테이블 키 미발급) |
+| F3004 주변 카페 검색 | PASS | BLOCKED (카카오 키 미발급) |
