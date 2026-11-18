@@ -46,3 +46,55 @@
 
 | 이름 | 구분 | 요구사항 | 제공처 |
 |---|---|---|---|
+| `search_restaurant_candidates` | external_api | F3002 | 서울관광재단 음식관광 API(1순위), 서울 열린데이터광장 강남구 일반음식점 인허가(보완) |
+
+---
+
+## 3. `search_restaurant_candidates` (F3002)
+
+**설명(Agent 노출)**: 강남역 또는 역삼역 주변에서 식사할 음식점 후보 목록이 필요할 때 사용한다. 음식 종류와 영업 기준일로 거른 후보를 거리순으로 돌려준다. 각 후보의 `source`·`source_id` 는 `get_restaurant_details` 에 그대로 넘긴다. 카페는 `search_nearby_cafes` 로 찾는다.
+
+### 입력
+
+| 필드 | 타입 | 필수 | 기본값 | 설명 |
+|---|---|---|---|---|
+| `area` | `"강남역" \| "역삼역"` | O | - | 검색 지역 (역 중심 반경 700m) |
+| `food_type` | `"한식" \| "중식" \| "일식" \| "양식" \| "분식" \| "기타"` | X | 전체 | 음식 종류 |
+| `reference_date` | `YYYY-MM-DD` | X | 오늘(KST) | 영업 여부 판단 기준일 |
+| `max_results` | int 1~50 | X | 10 | 최대 결과 수 |
+
+### 출력 `data`
+
+| 필드 | 설명 |
+|---|---|
+| `area`, `center{latitude,longitude}`, `radius_m`, `food_type` | 실제 적용된 검색 조건 |
+| `query_basis` | `requested_date`, `applied_date`, `default_applied`, `differs_from_request`, `notes[]` — 기본값 적용·요청과 실제 기준 차이를 명시 |
+| `candidates[]` | `name`, `source`, `source_id`, `road_address`, `jibun_address`, `latitude`, `longitude`, `coordinate_note`, `distance_m`, `category`(출처 원본), `food_type`(정규화), `business_status`(인허가 출처만), `detail_available` |
+| `source_status[]` | 출처별 `ok`, `returned`, `error_code`, `message`, `data_fetched_at`, `data_updated_at` |
+| `skipped_possible_duplicates` | 보완 출처에서 이름·위치(30m 이내)가 1순위 후보와 같아 목록에서 뺀 수 |
+
+### 동작 규칙
+
+- 1순위 레드테이블 결과(거리순)로 `max_results` 를 채우지 못하면 강남구 인허가 데이터로 보충한다.
+- 출처 ID 는 출처 내부에서만 유효하다. 레드테이블 `RSTR_ID` 와 인허가 `MGTNO` 를 같은 식당으로 연결하지 않는다.
+  이름·위치가 같아 보이는 보완 행은 **연결하지 않고 목록에서 제외**만 하며 그 수를 `skipped_possible_duplicates` 로 알린다.
+- 카페류 분류(`까페` 등)는 제외한다. 좌표가 없는 행은 거리 판단이 불가하므로 제외한다.
+- 인허가 영업 판정: 인허가일 ≤ 기준일 < 폐업일. 오늘 이후는 현재 영업상태(`01 영업/정상`)로 판정. 휴업 이력은 데이터에 없다.
+- 미래 기준일 → 오늘 기준으로 조회하고 `differs_from_request=true` + 사유를 `notes` 에 남긴다.
+- 레드테이블은 기준일 개념이 없어 데이터 수집 시점 기준임을 `notes` 에 항상 남긴다.
+- 강남역 서측(서초구)은 강남구 인허가 데이터에 없다는 점을 `notes` 에 남긴다.
+- 인허가 X/Y(EPSG:5174)는 WGS84 로 변환하고 `coordinate_note` 에 변환 사실을 표시한다.
+
+### 데이터 수집·캐시
+
+두 API 모두 지역/ID 필터 파라미터가 없어 전체 페이지를 순회한 뒤, 두 역 중 한 곳에서 1.5km 이내 행만 `data/cache/*.json` 에 저장하고 `CACHE_TTL_HOURS`(기본 168시간) 동안 재사용한다. 첫 호출은 전체 페이지 수만큼 API 를 호출하므로 오래 걸릴 수 있다.
+
+### 실패
+
+| 상황 | 결과 |
+|---|---|
+| 입력 누락·범위 오류 | `INVALID_INPUT` (외부 호출 없음) |
+| 두 출처 모두 키 없음 | `MISSING_API_KEY` |
+| 한 출처만 실패 | `ok=true`, 해당 출처 `source_status.ok=false` + `error_code` |
+| 두 출처 모두 실패 | 1순위 출처의 오류 코드 (`TIMEOUT`/`API_ERROR`) |
+| 조회 성공·후보 0건 | `NO_RESULT` |
