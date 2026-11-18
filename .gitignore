@@ -1,0 +1,25 @@
+# 비밀정보
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+
+# 외부 API 캐시 / 실행 산출물
+data/cache/
+docs/verification_raw/
+
+# 기타
+.DS_Store
+.idea/
+.vscode/
+.claude/
+
+# 대외비 요구사항정의서 원본 (커밋 금지)
+AI코어프로젝트_*요구사항정의서*.pdf
