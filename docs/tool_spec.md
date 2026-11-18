@@ -47,6 +47,7 @@
 | 이름 | 구분 | 요구사항 | 제공처 |
 |---|---|---|---|
 | `search_restaurant_candidates` | external_api | F3002 | 서울관광재단 음식관광 API(1순위), 서울 열린데이터광장 강남구 일반음식점 인허가(보완) |
+| `get_restaurant_details` | external_api | F3003 | 서울관광재단 음식관광 API(식당기본정보·메뉴정보 한국어·식당운영정보), 강남구 인허가(기본정보만) |
 
 ---
 
@@ -98,3 +99,49 @@
 | 한 출처만 실패 | `ok=true`, 해당 출처 `source_status.ok=false` + `error_code` |
 | 두 출처 모두 실패 | 1순위 출처의 오류 코드 (`TIMEOUT`/`API_ERROR`) |
 | 조회 성공·후보 0건 | `NO_RESULT` |
+
+---
+
+## 4. `get_restaurant_details` (F3003)
+
+**설명(Agent 노출)**: `search_restaurant_candidates` 로 찾은 특정 음식점의 메뉴명·가격·영업시간·휴무일·편의시설을 확인해야 할 때 사용한다. 후보의 `source` 와 `source_id` 를 그대로 넣는다. 확인되지 않은 값은 null 이며, 상세정보를 제공하지 않는 출처의 후보는 `detail_available=false` 와 그 사유를 돌려준다.
+
+### 입력
+
+| 필드 | 타입 | 필수 | 설명 |
+|---|---|---|---|
+| `source` | `"seoul_tourism_redtable" \| "gangnam_general_restaurant_license"` | O | 후보 Tool 결과의 `source` |
+| `source_id` | str (1~64자) | O | 후보 Tool 결과의 `source_id` (레드테이블 `RSTR_ID` / 인허가 `MGTNO`) |
+
+### 출력 `data`
+
+| 필드 | 설명 |
+|---|---|
+| `source`, `source_id` | 요청한 출처·식별자 |
+| `basic` | `name`, `road_address`, `jibun_address`, `latitude`, `longitude`, `phone`, `category`, `license_type`, `business_status`(인허가만) |
+| `detail_available` | 이 출처가 메뉴·운영정보를 제공하는지 |
+| `detail_unavailable` | 제공 불가 시 `{code: "DETAIL_NOT_AVAILABLE", message}`, 아니면 null |
+| `menus` | `[{menu_id, name, price_krw, is_local_specialty}]`. 확인 불가(제공 안 함·조회 실패) → null, 등록 메뉴 없음 → [] |
+| `menu_status` | `found` / `not_found` / `unavailable` / `error` |
+| `operation` | `business_hours`, `holidays`, `wifi`, `parking`, `standing_seats`, `floor_seats`, `reservation_method`, `barrier_free`, `delivery`, `kiosk`, `mobile_payment`, `representative_menu`, `homepage_url` (없는 값은 null) |
+| `operation_status` | `found` / `not_found` / `unavailable` / `error` |
+| `section_errors[]` | 메뉴·운영정보 조회 중 실패한 섹션의 `{section, code, message}` |
+| `data_fetched_at` | 섹션별 데이터 수집 시각 |
+
+### 동작 규칙
+
+- 레드테이블 후보: 식당기본정보·메뉴정보(한국어)·식당운영정보를 **같은 출처의 `RSTR_ID`** 로만 연결한다.
+- 인허가 후보: 기본정보만 반환하고 `detail_unavailable` 에 사유를 적는다. 이름·주소가 비슷한 레드테이블 식당의 메뉴를 가져오지 않는다 (해당 경로에서는 레드테이블 API 를 호출하지 않음).
+- 값 변환: `Y`→true, `N`→false, 그 외/빈값→null. 가격이 없거나 0 이하 → null. 문자열 `"null"`·빈 문자열 → null.
+- 메뉴 또는 운영정보 API 만 실패하면 기본정보와 나머지 섹션은 정상 반환하고 실패 섹션은 `status=error` + `section_errors` 로 알린다.
+- 메뉴정보(약 57만 행)·운영정보 API 도 식당 ID 필터가 없어 전체 페이지를 순회한 뒤 서비스 지역 식당 ID 만 캐시한다.
+
+### 실패
+
+| 상황 | 결과 |
+|---|---|
+| `source`/`source_id` 누락·허용되지 않은 출처 | `INVALID_INPUT` |
+| 해당 출처 키 없음 | `MISSING_API_KEY` |
+| 서비스 지역 데이터에 없는 ID | `NO_RESULT` |
+| 기본정보 조회 시간 초과 / API 오류 | `TIMEOUT` / `API_ERROR` |
+| 상세정보 미제공 출처 | `ok=true` + `detail_unavailable.code = DETAIL_NOT_AVAILABLE` (기본정보는 유지) |

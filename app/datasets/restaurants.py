@@ -185,3 +185,50 @@ class GangnamLicenseDataset:
         payload = self.cache.get_or_build(self.CACHE_NAME, self._build)
         meta = {k: v for k, v in payload.items() if k != "data"}
         return [RestaurantRecord.from_dict(d) for d in payload["data"]], meta
+
+
+# ------------------------------------------------ 레드테이블 메뉴·운영정보 (F3003)
+class RedtableDetailDataset:
+    """메뉴정보(한국어)·식당운영정보를 서비스 지역 식당 ID 로 걸러 캐시한다.
+
+    두 API 모두 식당 ID 필터가 없어 전체 페이지를 순회한다.
+    같은 출처(레드테이블)의 RSTR_ID 로만 연결한다.
+    """
+
+    MENU_CACHE = "redtable_menu_area"
+    OPERATION_CACHE = "redtable_oprt_area"
+
+    def __init__(self, client: RedtableClient, cache: JsonCache, restaurants: RedtableRestaurantDataset):
+        self.client = client
+        self.cache = cache
+        self.restaurants = restaurants
+
+    def _area_ids(self) -> set[str]:
+        records, _ = self.restaurants.load()
+        return {r.source_id for r in records}
+
+    def _collect(self, endpoint: str):
+        ids = self._area_ids()
+        grouped: dict[str, list[dict[str, Any]]] = {}
+        scanned = 0
+        total = 0
+        for page in self.client.iter_all(endpoint):
+            total = page.total_count or total
+            for row in page.rows:
+                scanned += 1
+                rid = _text(row.get("RSTR_ID"))
+                if rid in ids:
+                    grouped.setdefault(rid, []).append(row)
+        return grouped, {"source_total_count": total, "scanned_rows": scanned}
+
+    def menus_by_id(self) -> tuple[dict[str, list[dict[str, Any]]], dict[str, Any]]:
+        from app.clients.redtable import ENDPOINT_MENU_KOREAN
+
+        payload = self.cache.get_or_build(self.MENU_CACHE, lambda: self._collect(ENDPOINT_MENU_KOREAN))
+        return payload["data"], {k: v for k, v in payload.items() if k != "data"}
+
+    def operations_by_id(self) -> tuple[dict[str, list[dict[str, Any]]], dict[str, Any]]:
+        from app.clients.redtable import ENDPOINT_OPERATION
+
+        payload = self.cache.get_or_build(self.OPERATION_CACHE, lambda: self._collect(ENDPOINT_OPERATION))
+        return payload["data"], {k: v for k, v in payload.items() if k != "data"}
