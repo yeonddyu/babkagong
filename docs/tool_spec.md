@@ -48,6 +48,7 @@
 |---|---|---|---|
 | `search_restaurant_candidates` | external_api | F3002 | 서울관광재단 음식관광 API(1순위), 서울 열린데이터광장 강남구 일반음식점 인허가(보완) |
 | `get_restaurant_details` | external_api | F3003 | 서울관광재단 음식관광 API(식당기본정보·메뉴정보 한국어·식당운영정보), 강남구 인허가(기본정보만) |
+| `search_nearby_cafes` | external_api | F3004 | 카카오 로컬 API (카테고리 검색 CE7) |
 
 ---
 
@@ -145,3 +146,52 @@
 | 서비스 지역 데이터에 없는 ID | `NO_RESULT` |
 | 기본정보 조회 시간 초과 / API 오류 | `TIMEOUT` / `API_ERROR` |
 | 상세정보 미제공 출처 | `ok=true` + `detail_unavailable.code = DETAIL_NOT_AVAILABLE` (기본정보는 유지) |
+
+---
+
+## 5. `search_nearby_cafes` (F3004)
+
+**설명(Agent 노출)**: 식사할 음식점이 정해진 뒤 그 주변에서 카공(공부·작업)할 카페를 찾아야 할 때 사용한다. 음식점 후보의 latitude/longitude 를 넣으면 반경 안의 카페를 가까운 순으로 돌려준다. 영업시간·콘센트·와이파이·혼잡도는 이 Tool 로 확인할 수 없어 항상 null 이다.
+
+### 입력
+
+| 필드 | 타입 | 필수 | 기본값 | 설명 |
+|---|---|---|---|---|
+| `latitude` | float 33~39 | O | - | 기준 위도 (F3002/F3003 결과의 `latitude`) |
+| `longitude` | float 124~132 | O | - | 기준 경도 |
+| `radius_m` | int 1~20000 | X | 500 | 검색 반경(m), 카카오 허용 범위 |
+| `max_results` | int 1~675 | X | 10 | 최대 결과 수 (15건 × 최대 45페이지) |
+
+### 출력 `data`
+
+| 필드 | 설명 |
+|---|---|
+| `center`, `radius_m` | 적용된 검색 기준 |
+| `total_count` | 카카오가 보고한 반경 내 카페 수 |
+| `cafes[]` | `kakao_place_id`, `name`, `address`(지번), `road_address`, `latitude`, `longitude`, `distance_m`, `place_url`, `phone`, `category_name`, `opening_hours`=null, `power_outlet`=null, `wifi`=null, `congestion`=null |
+| `not_provided_fields` | `["opening_hours","power_outlet","wifi","congestion"]` — 출처에서 확인할 수 없어 null 로 둔 항목 |
+| `source` | `kakao_local_category_CE7` |
+
+### 동작 규칙
+
+- `category_group_code=CE7`, `sort=distance`, `size=15` 로 호출하고 `max_results` 를 채울 때까지 `page` 를 늘린다 (`is_end` 이면 중단).
+- 좌표·이름·장소 링크(`place_url`) 중 하나라도 없는 문서는 결과에서 뺀다. 빈 문자열 주소·전화는 null.
+- 같은 `id` 는 한 번만 넣는다.
+
+### 실패
+
+| 상황 | 결과 |
+|---|---|
+| 위경도 누락·범위 밖, 반경 0 또는 20000 초과 | `INVALID_INPUT` (외부 호출 없음) |
+| `KAKAO_REST_API_KEY` 없음 | `MISSING_API_KEY` (외부 호출 없음) |
+| 반경 내 카페 0건 | `NO_RESULT` |
+| 응답 시간 초과 | `TIMEOUT` |
+| 401/403(키 오류), 429(한도 초과), 5xx, JSON/구조 오류 | `API_ERROR` |
+
+## 6. Tool 연결 (앞 Tool 출력 → 다음 Tool 입력)
+
+```
+search_restaurant_candidates(area, food_type?, reference_date?, max_results?)
+   └─ candidates[i].source, candidates[i].source_id ──▶ get_restaurant_details(source, source_id)
+   └─ candidates[i].latitude, candidates[i].longitude ─▶ search_nearby_cafes(latitude, longitude, radius_m?)
+```
