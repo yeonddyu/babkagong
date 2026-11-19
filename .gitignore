@@ -23,3 +23,7 @@ docs/verification_raw/
 
 # 대외비 요구사항정의서 원본 (커밋 금지)
 AI코어프로젝트_*요구사항정의서*.pdf
+
+# 로컬 DB·캐시
+backend/data/
+.playwright-mcp/
