@@ -12,13 +12,13 @@
 | F3003 | 음식점 상세정보 조회 | PASS | PASS (후보 ID → 상세 실제 호출) | PASS | 296297b, 6c53d15 | 미검증 |
 | F3004 | 주변 카페 검색 | PASS | PASS (카카오 실제 호출 2026-11-19 카카오맵 활성화 후, 보조 출처 휴게음식점도 PASS) | PASS | 24b6aeb, 89a2176, cfa4460 | 미검증 |
 | weather | 기상청 날씨 조회 | PASS | PASS | PASS | 0f5e27d | 미검증 |
-| F3005 | 사용자 요청 분석 | PASS | 규칙 경로 PASS / **LLM 경로 BLOCKED** (OPENAI_API_KEY 없음) | PASS (규칙) | 730901d, f09a082 | 미검증 |
+| F3005 | 사용자 요청 분석 | PASS | PASS (GMS LLM 실제 분석 + 규칙 대체 경로) | PASS | 730901d, f09a082, f618501, 4e71de8 | 미검증 |
 | F3006 | 작업 계획 수립 | PASS | PASS (시나리오 S1·S5·S6) | PASS | 9bddf88 | 미검증 |
 | F3007 | Tool 호출 및 결과 통합 | PASS | PASS (S1·S4) | PASS | d08983a | 미검증 |
-| F3008 | 제약 적합성 판단 | PASS | PASS (S1~S3) | PASS | d5193e7, f373ea3, bc2851f | 미검증 |
+| F3008 | 제약 적합성 판단 | PASS | PASS (S1~S3) | PASS | d5193e7, f373ea3, bc2851f, 998599b | 미검증 |
 | F3009 | 재계획 | PASS | PASS (S2 재계획, S3 상한) | PASS | e31408f | 미검증 |
 | F3010 | 대화 맥락 유지 | PASS | PASS (S8) | PASS | dd56ea1 | 미검증 |
-| F3011 | 최종 응답 생성 | PASS | 템플릿 PASS / LLM 문장 BLOCKED | PASS (템플릿) | ad30e41, d21a0c8 | 미검증 |
+| F3011 | 최종 응답 생성 | PASS | PASS (GMS LLM 문장, 누락 시 템플릿) | PASS | ad30e41, d21a0c8, e759e58 | 미검증 |
 | F3012 | 실행 이벤트 발행 | PASS | PASS | PASS | 51e10bc | 미검증 |
 | F3013 | 실행 로그 저장 | PASS | PASS (실서버 SQLite) | PASS | 57c6905 | 미검증 |
 | F3014 | 실행 로그 조회·삭제 | PASS | PASS (API) | PASS | 5cdc6b4 | 미검증 |
@@ -34,12 +34,11 @@
 | NF3002 | 화면 노출 제한 | API 오류 공통 형식·내부 예외 미노출 테스트, 타임라인은 오류 코드 안내만 | PASS |
 | NF3003 | Tool 실패 처리 | 레지스트리 예외 차단, 출처별 격리, S4 (날씨 키 없음) 추천 계속, 카카오 실패 시 보조 출처 전환(통합 테스트) | PASS |
 | NF3004 | 재계획 상한 | MAX_REPLANS=3, S3 에서 3회 후 중단 | PASS |
-| NF3005 | 응답 시간 | 대표 요청 0.0~3.1초 (캐시 구축 후). 첫 캐시 구축은 약 5분 → `scripts.build_cache` 로 사전 구축. 상세조회 160ms→0.2ms 개선 | PASS (조건부) |
+| NF3005 | 응답 시간 | 대표 요청 LLM(GMS) 사용 시 2.0~7.7초, 규칙 경로 0.0~3.1초 (캐시 구축 후). 첫 캐시 구축은 약 5분 → `scripts.build_cache` 로 사전 구축. 상세조회 160ms→0.2ms 개선 | PASS (조건부) |
 | NF3006 | 모듈 분리 | backend/frontend 분리, agent·tools·clients·events·storage·api 파일 분리 | PASS |
 | NF3007 | 출처·이용 조건 | `docs/api_verification.md` | PASS |
 
 ## 남은 외부 조치
 | 항목 | 조치 |
 |---|---|
-| OpenAI | `.env` 에 `OPENAI_API_KEY` 설정 후 LLM 경로 검증 |
 | Codex | 독립 검증 수행 |

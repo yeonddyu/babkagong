@@ -18,12 +18,12 @@
 | 기상청 단기예보 `getVilageFcst` | `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst?serviceKey=***&...&nx=61&ny=125` | 200 | **PASS** — resultCode 00, 798건(1발표) |
 | 카카오 로컬 카테고리 검색 CE7 | `https://dapi.kakao.com/v2/local/search/category.json?category_group_code=CE7&x=127.027619&y=37.497952&radius=300` | 200 | **PASS** — total_count 101, 15건/페이지, `place_url` 링크 포함 (1차: 앱 카카오맵 비활성으로 403 → 사용자가 활성화 후 통과) |
 | 카카오 (잘못된 키) | 위와 동일 | 401 | PASS — `AccessDeniedError` → `API_ERROR` |
-| OpenAI | - | - | **BLOCKED** — `OPENAI_API_KEY` 미설정. 요청 분석·응답 문장은 규칙/템플릿 경로로 동작 |
-| SSAFY GMS | - | - | **EXCLUDED** — `GMS_API_KEY` 존재 확인만, 모델 연동은 이번 범위 밖 |
+| SSAFY GMS `chat/completions` (gpt-4o-mini) | `https://gms.ssafy.io/gmsapi/api.openai.com/v1/chat/completions` | 200 | **PASS** — 모델 `gpt-4o-mini-2024-07-18` 응답, LLM 분석·문장 생성 통합 테스트 통과 |
+| OpenAI 직접 호출 | - | - | 미사용 — `AI_PROVIDER=gms` (OPENAI_API_KEY 없음) |
 
 데이터 API 3종 이상 확보 조건: 서울관광재단·서울 열린데이터광장·기상청·카카오 로컬 4개 제공처가 **실제 호출로 확인됨 (충족)**.
 
-통합 테스트 (`pytest -m integration -v -rs`, 2026-11-19): **15 passed, 0 skipped** (카카오맵 활성화 전 1차: 13 passed, 2 skipped).
+통합 테스트 (`pytest -m integration -v -rs`, 2026-11-19): **18 passed, 0 skipped** (GMS LLM 3건 포함) (카카오맵 활성화 전 1차: 13 passed, 2 skipped).
 
 ## 2. 제공처별 상세
 
@@ -68,10 +68,15 @@
 | 호출 한도 | 카카오디벨로퍼스 쿼터 정책(앱 [쿼터] 메뉴), 무료 월간 쿼터는 계정의 첫 활성 앱에 제공 |
 | 이용 조건 | 카카오 API 이용약관. 장소 정보는 응답 시점 결과만 표시하고 저장하지 않음 (대화 Memory 에 이름·링크 요약만) |
 
-### 2.5 OpenAI / SSAFY GMS
-- OpenAI: `OPENAI_API_KEY` 설정 시 `core/llm_provider.py` 가 ChatOpenAI(`OPENAI_MODEL`, 기본 gpt-4o-mini)를 생성. 현재 키 없음 → BLOCKED.
-- GMS: 키 존재만 확인. `AI_PROVIDER=gms` 여도 GMS 를 호출하지 않는다.
+### 2.5 SSAFY GMS (LLM)
+| 항목 | 내용 |
+|---|---|
+| 출처 | SSAFY GMS https://gms.ssafy.io (OpenAI 호환 프록시) |
+| 요청 | `POST {GMS_BASE_URL}/chat/completions`, 헤더 `Authorization: Bearer {GMS_API_KEY}` — `ChatOpenAI(base_url=GMS_BASE_URL)` 로 호출 |
+| 모델 | `GMS_MODEL` (기본 gpt-4o-mini). 실제 응답 확인: gpt-4o-mini, gpt-4.1-mini, gpt-4o. `/models` 목록 API 는 500 으로 미지원 |
+| 용도 | 요청 분석(구조화 출력, 발화 근거 검사 후 사용), 최종 응답 문장(확정 JSON 만 근거, 추천·카페·안내 누락 시 템플릿) |
+| 실측 | 분석 약 2초, 문장 생성 약 3~5초 → 대표 요청 2~8초 |
+| 이용 조건 | SSAFY 교육용 제공 키, 키는 `.env` 에만 보관 |
 
 ## 3. BLOCKED 해제 방법
-1. OpenAI: `.env` 에 `OPENAI_API_KEY` 입력 → `/api/health` 의 `llm.available=true`, 응답의 `decided_by=llm` 확인
 2. 갱신 후 `scripts.verify_apis` 결과로 이 문서 1절 갱신

@@ -8,11 +8,11 @@
 | 구분 | 결과 |
 |---|---|
 | 필수 기능 F3001~F3019 | 19개 **PASS** (F3004 카카오는 사용자가 카카오맵 활성화 후 재검증해 PASS) |
-| 부분 BLOCKED | F3005 LLM 분석 경로, F3011 LLM 문장 경로 — OPENAI_API_KEY 없음 (규칙/템플릿 경로는 PASS) |
+| LLM | SSAFY GMS(gpt-4o-mini) 실제 호출로 요청 분석·응답 문장 검증 PASS (OpenAI 직접 호출은 미사용) |
 | 추가 기능 (기상청 날씨) | PASS (실제 호출) |
 | 비기능 NF3001~NF3007 | 7개 PASS (NF3005 는 캐시 사전 구축 조건) |
 | 대표 시나리오 | 실제 API 10/10 PASS (`docs/scenario_results.md`) |
-| 테스트 | 백엔드 단위 233 passed / 통합 15 passed·0 skipped / 프론트 vitest 9 passed / build 통과 |
+| 테스트 | 백엔드 단위 241 passed / 통합 18 passed·0 skipped (GMS LLM 3건 포함) / 프론트 vitest 10 passed / build 통과 |
 
 요구사항별 상세는 `PLAN.md`.
 
@@ -25,7 +25,7 @@
 | F3003 | `app/tools/restaurant_details.py` | `test_f3003_*`, `test_live_f3003.py` | 후보 ID→상세 실제 | 296297b, 6c53d15 |
 | F3004 | `app/tools/nearby_cafes.py`, `app/clients/kakao_local.py` | `test_f3004_*`, `test_live_f3004.py` | 카카오 실제 PASS, 휴게음식점 보조 실제 PASS | 24b6aeb, 89a2176, cfa4460 |
 | weather | `app/tools/weather.py`, `app/clients/kma.py` | `test_weather.py`, `test_live_weather.py` | 기상청 실제 | 0f5e27d |
-| F3005 | `app/agent/analysis.py`, `conditions.py` | `test_f3005_analysis.py` | 규칙 경로 | 730901d, f09a082 |
+| F3005 | `app/agent/analysis.py`, `conditions.py`, `app/core/llm_provider.py` | `test_f3005_analysis.py`, `test_live_llm.py` | GMS LLM 실제 + 규칙 | 730901d, f09a082, f618501, 4e71de8 |
 | F3006 | `app/agent/planning.py` | `test_f3006_planning.py` | S1·S5·S6 | 9bddf88 |
 | F3007 | `app/agent/execution.py`, `graph.py` | `test_f3007_execution.py` | S1·S4 | d08983a |
 | F3008 | `app/agent/judge.py`, `policy.py` | `test_f3008_judge.py` | S1~S3 | d5193e7, f373ea3, bc2851f |
@@ -53,6 +53,10 @@
 | SQLite 에서 읽은 일시의 시간대 손실 | ca1879d |
 | 주류가 대표 메뉴로 표시 | bc2851f |
 | 상세조회마다 5MB 캐시 재로딩 (160ms) | 4a3c0a9 |
+| GMS LLM 이 말하지 않은 도보 선호를 채우고 시각에 시간대를 붙임 | 4e71de8 |
+| GMS LLM 문장에서 추천 카페·미확인 안내 누락 | e759e58 |
+| 버블티 가게(음료만)가 점심 식당으로 추천 | 998599b |
+| GMS 사용 중에도 OPENAI 키 누락 경고 표시 | 2b7acd2 |
 
 ## 4. 기록해야 할 절차상 문제 (숨기지 않음)
 1. **F3016 커밋 f0fc2de 는 테스트 1건 실패 상태로 생성됨.** 커밋 명령에서 pytest 종료 코드 대신 `tail` 종료 코드를 확인한 실수. 직후 ca1879d 에서 원인(SQLite 시간대 손실)을 수정하고 전체 통과 확인. 이후 커밋은 pytest 종료 코드로 검사.
@@ -63,7 +67,6 @@
 ## 5. 미해결
 | 항목 | 영향 | 조치 |
 |---|---|---|
-| OPENAI_API_KEY 없음 | LLM 의도 분석·문장 생성 미검증 (스텁만) | 키 설정 후 검증 |
 | 첫 캐시 구축 약 5분 | 캐시 없을 때 첫 요청 지연 | `scripts.build_cache` 사전 실행 |
 | 레드테이블 메뉴 보유 식당 19% | 예산 조건 시 '가격 미확인' 제외가 많아 재계획 빈발 | 데이터 한계, 응답에 사유·제안 표시 |
 | 강남역 서측(서초구) 인허가 데이터 없음 | 보완 후보 누락 | notes 로 안내 |
