@@ -6,6 +6,7 @@ import CoursePanel from '../components/CoursePanel.vue'
 import RunTimeline from '../components/RunTimeline.vue'
 import StatusBanner from '../components/StatusBanner.vue'
 import { formatMessage } from '../utils/format'
+import { weatherMood } from '../utils/weather'
 import type { Area, ChatResponse, RunEvent } from '../types'
 
 interface Turn {
@@ -33,6 +34,7 @@ const listEl = ref<HTMLElement | null>(null)
 const liveEvents = ref<RunEvent[]>([])
 const selected = ref(0)
 const mobileTab = ref<'chat' | 'course'>('chat')
+const mood = computed(() => weatherMood(latest.value?.weather))
 
 // 오른쪽 패널에는 가장 최근의 추천 결과만 보여 준다 (저장·인사 응답은 이전 코스를 유지)
 const latest = computed<ChatResponse | null>(() => {
@@ -91,7 +93,7 @@ async function scroll() {
 </script>
 
 <template>
-  <div class="workspace" :data-tab="mobileTab">
+  <div class="workspace" :data-tab="mobileTab" :data-weather="mood ?? 'none'">
     <div class="mobile-tabs" role="tablist" aria-label="화면 전환">
       <button role="tab" :aria-selected="mobileTab === 'chat'" :class="{ on: mobileTab === 'chat' }" @click="mobileTab = 'chat'">대화</button>
       <button role="tab" :aria-selected="mobileTab === 'course'" :class="{ on: mobileTab === 'course' }" @click="mobileTab = 'course'">
@@ -165,8 +167,12 @@ async function scroll() {
 <style scoped>
 .workspace { display: grid; grid-template-columns: minmax(340px, 440px) 1fr; gap: 18px; align-items: start; }
 .mobile-tabs { display: none; }
+/* 날씨에 따라 코스 영역 바탕을 아주 옅게 물들인다 (응답이 없으면 기본) */
+.side { border-radius: 28px; transition: background-color .6s ease; }
+.workspace[data-weather='rain'] .side, .workspace[data-weather='snow'] .side, .workspace[data-weather='cold'] .side { background: #f1f3f4; }
+.workspace[data-weather='hot'] .side, .workspace[data-weather='clear'] .side { background: #fbf1e2; }
 .chat { display: flex; flex-direction: column; gap: 12px; height: calc(100vh - 110px); min-height: 520px; position: sticky; top: 12px; }
-.side { min-width: 0; padding-bottom: 24px; }
+.side { min-width: 0; padding: 0 0 24px; }
 .toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 14px; }
 .area-select { display: flex; align-items: center; gap: 6px; }
 .area-btn { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 6px 14px; }

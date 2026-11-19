@@ -4,6 +4,7 @@ import CourseTimeline from './CourseTimeline.vue'
 import MapPanel from './MapPanel.vue'
 import MenuRoulette from './MenuRoulette.vue'
 import RecommendationCard from './RecommendationCard.vue'
+import WeatherStrip from './WeatherStrip.vue'
 import type { ChatResponse } from '../types'
 
 defineProps<{ result: ChatResponse | null; selected: number; savingIndex: number | null; busy: boolean }>()
@@ -18,6 +19,7 @@ defineEmits<{ select: [index: number]; save: [index: number] }>()
       <p class="muted small">왼쪽에서 지역과 조건을 말하면, 식당과 식사 후 갈 카페를 이곳에 모아 보여 드려요.</p>
     </div>
     <template v-else>
+      <WeatherStrip :weather="result.weather" :policy="result.weather_policy" />
       <MapPanel v-if="result.recommendations.length" :recommendations="result.recommendations" :selected="selected"
                 @select="$emit('select', $event)" />
       <CourseTimeline v-if="result.recommendations[selected]" :rec="result.recommendations[selected]!" :index="selected"
