@@ -47,14 +47,13 @@ def resolve_conditions(analysis: AnalysisResult, previous: dict[str, Any] | None
 
 def summarize_recommendations(recommendations: list[dict[str, Any]]) -> list[dict[str, Any]]:
     out = []
-    for rec in recommendations:
-        r = rec["restaurant"]
+    for r in recommendations:
         out.append({
-            "restaurant": {k: r.get(k) for k in ("name", "source", "source_id", "road_address", "latitude", "longitude", "distance_m")},
-            "menus": [{"name": m["name"], "price_krw": m.get("price_krw")} for m in rec.get("matched_menus", [])[:3]],
-            "business_hours": rec.get("business_hours"),
-            "cafes": [{k: c.get(k) for k in ("name", "source", "source_id", "road_address", "place_url", "distance_m")}
-                      for c in rec.get("cafes", [])[:3]],
+            "restaurant": {k: r.get(k) for k in ("name", "source", "source_id", "address", "latitude", "longitude", "distance_m", "area")},
+            "menus": [{"name": m["name"], "price_krw": m.get("price_krw")} for m in r.get("matched_menus", [])[:3]],
+            "business_hours": r.get("business_hours"),
+            "cafes": [{k: c.get(k) for k in ("name", "source", "source_id", "road_address", "address", "place_url", "distance_m")}
+                      for c in r.get("cafes", [])[:3]],
         })
     return out
 

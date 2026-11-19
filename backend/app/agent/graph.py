@@ -18,6 +18,7 @@ from app.agent.execution import ExecutionData, ToolExecutor, run_cafes, run_cand
 from app.agent.judge import Evaluation, cafe_radius, evaluate
 from app.agent.memory import InMemoryMemoryStore, MemoryStore, build_memory, resolve_conditions
 from app.agent.planning import CAFE_TARGETS, Plan, build_plan
+from app.agent.respond import build_response
 from app.datasets.cache import now_kst
 from app.tools.registry import ToolRegistry
 
@@ -178,24 +179,12 @@ class MainAgent:
         return "respond" if state["replan_history"][-1]["strategy"] == "none" else "execute"
 
     def respond_node(self, state: AgentState) -> dict[str, Any]:
-        analysis: AnalysisResult = state["analysis"]
-        data: ExecutionData | None = state.get("data")
-        ev: Evaluation | None = state.get("evaluation")
-        recs = []
-        if data and ev:
-            by_key = {f"{c['source']}:{c['source_id']}": c for c in data.candidates}
-            for e in ev.satisfied[:CAFE_TARGETS]:
-                detail = data.details.get(e.key) or {}
-                recs.append({
-                    "restaurant": by_key[e.key],
-                    "evaluation": e,
-                    "matched_menus": e.matched_menus,
-                    "business_hours": ((detail.get("operation") or {}).get("business_hours")),
-                    "cafes": (data.cafes.get(e.key) or {}).get("cafes", []),
-                    "cafe_error": data.cafe_errors.get(e.key),
-                })
-        return {"response": {"intent": analysis.intent, "recommendations": recs,
-                             "excluded": [e for e in (ev.excluded if ev else [])]}}
+        body = build_response(
+            state["analysis"], state["conditions"], state.get("plan"), state.get("data"), state.get("evaluation"),
+            state.get("executor"), state.get("replan_history", []), state.get("stop_reason"),
+            state.get("changed_fields", []), self.llm,
+        )
+        return {"response": body}
 
     # ------------------------------------------------------------ run
     def run(self, message: str, *, session_id: str | None = None, area_hint: str | None = None) -> dict[str, Any]:
