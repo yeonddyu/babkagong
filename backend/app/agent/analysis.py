@@ -242,6 +242,12 @@ def _evidence_guard(result: AnalysisResult, message: str, rule: AnalysisResult) 
         c.base.meal_time = c.base.cafe_time = None
     if c.constraint.end_by and not re.search(r"\d", message):
         c.constraint.end_by = None
+    # 시각 표현이 하나뿐이면 카페 시각을 따로 정할 근거가 없다 (실제 GMS 가 '12시 점심'에서 카페 13:00 을 만든 사례)
+    time_mentions = parse_times(message, rule.conditions.base.meal_period)
+    if c.base.cafe_time and rule.conditions.base.cafe_time is None and len(time_mentions) < 2:
+        c.base.cafe_time = None
+    if c.constraint.end_by and rule.conditions.constraint.end_by is None and not re.search(r"까지|전에|안에|끝나", message):
+        c.constraint.end_by = None
     if c.constraint.max_walk_minutes and not re.search(r"\d", message):
         c.constraint.max_walk_minutes = None
     # '가까운 곳/많이 걷기 싫다' 표현이 없는데 도보 선호를 넣은 경우 제거 (실제 GMS 응답에서 확인된 문제)

@@ -155,3 +155,16 @@ def test_llm_guard_drops_unstated_walk_preference_and_timezone():
     fake2 = AnalysisResult(intent="recommend", reason="r", decided_by="rule", conditions=Conditions.model_validate({
         "preference": {"area": "강남역", "prefer_short_walk": True}}))
     assert analyze("강남역 많이 걷기 싫어", TODAY, StubLLM(result=fake2)).conditions.preference.prefer_short_walk is True
+
+
+def test_llm_guard_drops_invented_cafe_time_and_end_by():
+    fake = AnalysisResult(intent="recommend", reason="r", decided_by="rule", conditions=Conditions.model_validate({
+        "base": {"meal_time": "12:00", "cafe_time": "13:00"}, "constraint": {"end_by": "17:00"},
+        "preference": {"area": "역삼역"}}))
+    r = analyze("역삼역에서 12시에 점심 먹고 카페 가고 싶어", TODAY, StubLLM(result=fake))
+    assert r.conditions.base.meal_time == time(12, 0)
+    assert r.conditions.base.cafe_time is None and r.conditions.constraint.end_by is None
+    fake2 = AnalysisResult(intent="recommend", reason="r", decided_by="rule", conditions=Conditions.model_validate({
+        "base": {"meal_time": "12:00", "cafe_time": "14:00"}, "constraint": {"end_by": "18:00"}, "preference": {"area": "역삼역"}}))
+    r2 = analyze("역삼역 12시 점심 먹고 2시부터 카공해서 6시까지", TODAY, StubLLM(result=fake2))
+    assert r2.conditions.base.cafe_time == time(14, 0) and r2.conditions.constraint.end_by == time(18, 0)
