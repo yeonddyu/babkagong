@@ -27,6 +27,7 @@ Base: `http://localhost:8000`, 문서: `/docs` (Swagger), `/openapi.json`
 {
   "session_id": "...", "run_id": "...",
   "intent": "recommend", "message": "사용자에게 보여줄 문장",
+  "summary": "대화창용 짧은 요약 (코드 생성: 코스 개수·1순위 식당·첫 카페·거리) | null (추천이 없거나 추천 의도가 아니면)",
   "conditions": {"base": {...}, "preference": {...}, "constraint": {...}, "missing": [...]},
   "weather": {...} | null,
   "recommendations": [{"restaurant": {...}, "cafes": [...], "reasons": [...], "unverified": [...], "score": 0}],

@@ -13,6 +13,7 @@
 | area | TEXT | 강남역/역삼역 |
 | restaurant_name / restaurant_source / restaurant_source_id / restaurant_address | TEXT | 식당 (출처·식별자 보존) |
 | cafe_name / cafe_place_id / cafe_address / cafe_url | TEXT | 카페 (선택) |
+| restaurant_lat / restaurant_lng / cafe_lat / cafe_lng | REAL | 저장 당시 확인된 좌표 (선택, 저장 코스 지도용). 이전 DB 는 시작 시 `ALTER TABLE ADD COLUMN` 으로 보완 |
 | memo | TEXT | |
 | session_id | TEXT | 추천을 만든 대화 세션 (선택) |
 | created_at / updated_at | DATETIME | KST |

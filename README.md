@@ -34,8 +34,10 @@ cd frontend && npm run dev
 `http://localhost:5173` 을 등록한다. 키가 없으면 실제 좌표로 그린 위치도로 표시된다. (`frontend/.env.example` 참고)
 
 ## 화면
-- 데스크톱: 왼쪽 대화(지역 선택·실시간 실행 과정) / 오른쪽 코스 패널(날씨 띠 → 지도 → 코스 흐름 → 추천 카드 → 메뉴 룰렛 → 판단 기준)
-- 모바일(900px 이하): '대화' / '코스·지도' 탭 전환
+- 데스크톱(45:55): 왼쪽 날씨 마스코트 → 지역 선택 → 대화(짧은 요약, 전체 답변은 펼치기) → 원형 메뉴 룰렛 → 코스 흐름 → 추천 카드(저장) /
+  오른쪽 화면을 따라오는 카카오 지도(핀을 누르면 장소 정보 카드, 다른 카페 후보로 바꾸기)
+- 모바일(900px 이하): '대화·추천' / '지도' 탭 전환, 입력창은 화면 아래 고정
+- 저장한 계획 상세에서 저장 당시 좌표로 식당·카페를 지도에 다시 표시
 - 지도의 식당→카페 선은 직선이며 실제 경로가 아님을 표시, 시각·영업시간·편의시설 등 확인되지 않은 값은 '미확인'·'시각 미지정'으로 표시
 첫 요청 전에 외부 데이터 캐시를 미리 만들어 두면 응답이 빠르다 (약 5분, 지역 필터 없는 API 전체 순회)
 ```bash
@@ -44,12 +46,12 @@ cd backend && ../.venv/bin/python -m scripts.build_cache
 
 ## 테스트
 ```bash
-cd backend && ../.venv/bin/python -m pytest                      # Mock 단위 테스트 (254)
+cd backend && ../.venv/bin/python -m pytest                      # Mock 단위 테스트 (259)
 cd backend && ../.venv/bin/python -m pytest -m integration -rs   # 실제 외부 API (키가 없으면 BLOCKED skip)
 cd backend && ../.venv/bin/python -m scripts.run_scenarios       # 대표 시나리오 10개 (실제 API) → docs/scenario_results.md
 cd backend && ../.venv/bin/python -m scripts.verify_apis         # API 연결 검증 (키 마스킹)
 .venv/bin/python backend/scripts/check_secrets.py                # 저장소에 키 값이 없는지 점검
-cd frontend && npm test && npm run build                          # vitest 47, 빌드
+cd frontend && npm test && npm run build                          # vitest 78, 빌드
 ```
 
 ## 문서
