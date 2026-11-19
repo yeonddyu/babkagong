@@ -44,12 +44,12 @@ cd backend && ../.venv/bin/python -m scripts.build_cache
 
 ## 테스트
 ```bash
-cd backend && ../.venv/bin/python -m pytest                      # Mock 단위 테스트 (253)
+cd backend && ../.venv/bin/python -m pytest                      # Mock 단위 테스트 (254)
 cd backend && ../.venv/bin/python -m pytest -m integration -rs   # 실제 외부 API (키가 없으면 BLOCKED skip)
 cd backend && ../.venv/bin/python -m scripts.run_scenarios       # 대표 시나리오 10개 (실제 API) → docs/scenario_results.md
 cd backend && ../.venv/bin/python -m scripts.verify_apis         # API 연결 검증 (키 마스킹)
 .venv/bin/python backend/scripts/check_secrets.py                # 저장소에 키 값이 없는지 점검
-cd frontend && npm test && npm run build                          # vitest 44, 빌드
+cd frontend && npm test && npm run build                          # vitest 47, 빌드
 ```
 
 ## 문서
