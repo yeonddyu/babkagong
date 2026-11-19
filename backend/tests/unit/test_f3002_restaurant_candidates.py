@@ -242,3 +242,11 @@ def test_paging_and_cache_reuse(make_settings):
     n = len(session.calls)
     ok_data(reg.invoke(TOOL, {"area": "역삼역"}))
     assert len(session.calls) == n  # 두 번째 호출은 캐시 사용
+
+
+def test_non_meal_places_excluded(make_settings):
+    rows = [rt_row(301, "던킨도너츠(역삼역사점)", *NEAR, cat="제과점영업"), rt_row(302, "강남타로카페", *NEAR, cat="기타"),
+            rt_row(303, "진짜 식당", *NEAR2)]
+    session = FakeSession().route(REDTABLE, redtable_pages(rows)).route(SEOUL, seoul_rows(SERVICE_GANGNAM_GENERAL_RESTAURANT, []))
+    data = ok_data(make_registry(make_settings, session).invoke(TOOL, {"area": "강남역"}))
+    assert [c["name"] for c in data["candidates"]] == ["진짜 식당"]

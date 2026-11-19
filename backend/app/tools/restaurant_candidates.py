@@ -39,8 +39,9 @@ CATEGORY_MAP: dict[str, str] = {
     "경양식": "양식", "양식": "양식", "패밀리레스토랑": "양식", "패스트푸드": "양식",
     "분식": "분식", "김밥(도시락)": "분식",
 }
-# 식당 후보에서 제외하는 카페류 분류 (카페는 F3004 에서 카카오로 검색)
-CAFE_CATEGORIES = {"까페", "카페", "커피숍", "다방", "전통찻집", "키즈카페", "라이브카페", "떡카페"}
+# 식당 후보에서 제외하는 비식사 업종 (카페는 F3004 에서 검색). 분류값이 비어 있는 경우를 위해 이름 패턴도 본다.
+CAFE_CATEGORIES = {"까페", "카페", "커피숍", "다방", "전통찻집", "키즈카페", "라이브카페", "떡카페", "제과점영업", "아이스크림", "편의점"}
+NON_MEAL_NAME = re.compile(r"카페|커피|coffee|cafe|타로|사주|베이커리|도넛|도너츠|아이스크림|빙수", re.IGNORECASE)
 
 
 class RestaurantSearchInput(BaseModel):
@@ -139,7 +140,7 @@ def _filter_area(records, center, food_type):
     for rec in records:
         if rec.latitude is None or rec.longitude is None:
             continue
-        if rec.category in CAFE_CATEGORIES:
+        if rec.category in CAFE_CATEGORIES or NON_MEAL_NAME.search(rec.name):
             continue
         if food_type and _food_type_of(rec.category) != food_type:
             continue
