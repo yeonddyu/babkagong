@@ -80,9 +80,9 @@ def scenarios(settings) -> list[dict[str, Any]]:
          "expected": "재계획 3회 후 중단, 사유와 조건 조정 제안",
          "check": lambda s, r: (len(s["replans"]) == 3 and "상한" in (s["stop_reason"] or "") and bool(r["response"]["suggestions"]),
                                 "재계획 3회·상한 사유·제안")},
-        {"id": "S4", "title": "Tool 하나가 실패 (카카오 403 실제 실패 + 기상청 키 제거)", "session": "S4", "settings": no_kma,
+        {"id": "S4", "title": "Tool 하나가 실패 (기상청 키 제거)", "session": "S4", "settings": no_kma,
          "message": "강남역 점심 먹고 카공할 곳 추천해줘",
-         "expected": "날씨 Tool MISSING_API_KEY·카카오 실패에도 나머지 단계 진행, 안내 표시, 추천 제공",
+         "expected": "날씨 Tool 이 MISSING_API_KEY 로 실패해도 나머지 단계 진행, 안내 표시, 기본 정책으로 추천 제공",
          "check": lambda s, r: (any("MISSING_API_KEY" in t for t in s["tool_calls"]) and bool(s["recommendations"]) and bool(s["notices"]),
                                 "실패 Tool 존재·추천 계속·안내")},
         {"id": "S5", "title": "Tool 이 필요 없는 요청 (인사)", "session": "S5", "message": "안녕!",
@@ -148,7 +148,7 @@ def main() -> None:
     lines = [
         "# 대표 시나리오 검증 결과 (요구사항정의서 4.7)", "",
         f"- 실행 일시: {now_kst().strftime('%Y-%m-%d %H:%M')} KST, 명령: `cd backend && ../.venv/bin/python -m scripts.run_scenarios`",
-        "- 외부 API: **실제 호출** (서울관광재단·서울 열린데이터광장·기상청). 카카오는 앱의 카카오맵 비활성(HTTP 403)으로 실패 → 휴게음식점 보조 출처 사용",
+        "- 외부 API: **실제 호출** (서울관광재단·서울 열린데이터광장·기상청·카카오 로컬)",
         f"- LLM: {'사용 (' + str(st.model) + ')' if st.available else '미사용 — OPENAI_API_KEY 없음, 요청 분석·응답 문장은 규칙/템플릿'}",
         "- 실행 로그 샘플: `docs/samples/run_log_S1_full.json`(대표 요청 1건 전체), `docs/samples/run_log_S3_replan_limit.json`(재계획 사례)",
         "- 변경 이력: 1차 실행에서 S2 요청('강남역 일식 1만 2천원 이하로 12시 점심')은 실제 데이터상 첫 상세조회 묶음에서 충족 후보가 나와 "
