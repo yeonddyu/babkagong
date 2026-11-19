@@ -2,6 +2,7 @@
 // 오른쪽 패널: 가장 최근 추천 결과의 코스(식당+카페)를 보여 준다. 대화 기록과 분리해 같은 목록을 두 번 쓰지 않는다.
 import CourseTimeline from './CourseTimeline.vue'
 import MapPanel from './MapPanel.vue'
+import MenuRoulette from './MenuRoulette.vue'
 import RecommendationCard from './RecommendationCard.vue'
 import type { ChatResponse } from '../types'
 
@@ -34,7 +35,7 @@ defineEmits<{ select: [index: number]; save: [index: number] }>()
           <RecommendationCard :rec="r" :index="ri" :saving="busy && savingIndex === ri" @save="$emit('save', $event)" />
         </div>
       </div>
-      <slot name="extra" :result="result" />
+      <MenuRoulette :recommendations="result.recommendations" @select="$emit('select', $event)" />
       <details v-if="result.criteria.length || result.excluded.length" class="card small basis">
         <summary>판단 기준과 제외한 후보 ({{ result.excluded.length }})</summary>
         <ul><li v-for="c in result.criteria" :key="c">{{ c }}</li></ul>
