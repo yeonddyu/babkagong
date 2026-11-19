@@ -97,11 +97,15 @@ export interface Plan {
   restaurant_source: string | null
   restaurant_source_id: string | null
   restaurant_address: string | null
+  restaurant_lat?: number | null
+  restaurant_lng?: number | null
   cafe_name: string | null
   cafe_source: string | null
   cafe_source_id: string | null
   cafe_address: string | null
   cafe_url: string | null
+  cafe_lat?: number | null
+  cafe_lng?: number | null
   memo: string | null
   session_id: string | null
   created_at: string

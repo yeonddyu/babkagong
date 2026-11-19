@@ -7,6 +7,7 @@ import RunTimeline from '../components/RunTimeline.vue'
 import StatusBanner from '../components/StatusBanner.vue'
 import { formatMessage } from '../utils/format'
 import { weatherMood } from '../utils/weather'
+import { chosenCafeIndex, courseState, resetCourse, selectCourse } from '../stores/course'
 import type { Area, ChatResponse, RunEvent } from '../types'
 
 interface Turn {
@@ -32,7 +33,7 @@ const busy = ref(false)
 const savingIndex = ref<number | null>(null)
 const listEl = ref<HTMLElement | null>(null)
 const liveEvents = ref<RunEvent[]>([])
-const selected = ref(0)
+const selected = computed(() => courseState.selected)
 const mobileTab = ref<'chat' | 'course'>('chat')
 const mood = computed(() => weatherMood(latest.value?.weather))
 
@@ -44,7 +45,7 @@ const latest = computed<ChatResponse | null>(() => {
   }
   return null
 })
-watch(latest, () => { selected.value = 0 })
+watch(latest, () => { resetCourse() })
 
 async function send(text?: string) {
   const message = (text ?? input.value).trim()
@@ -72,11 +73,12 @@ async function send(text?: string) {
 
 async function saveCourse(index: number) {
   savingIndex.value = index
-  await send(`${index + 1}번 코스 저장해줘`)
+  // 지도·카드에서 고른 카페로 저장 (F3015 저장은 대화 흐름을 그대로 사용)
+  await send(`${index + 1}번 코스 저장해줘 (카페 ${chosenCafeIndex(index) + 1}번)`)
 }
 
 function showCourse(index: number) {
-  selected.value = index
+  selectCourse(index)
   mobileTab.value = 'course'
 }
 
@@ -159,7 +161,7 @@ async function scroll() {
 
     <aside class="side">
       <CoursePanel :result="latest" :selected="selected" :saving-index="savingIndex" :busy="busy"
-                   @select="selected = $event" @save="saveCourse" @more="send('다른 곳 더 보여줘')" />
+                   @select="selectCourse" @save="saveCourse" @more="send('다른 곳 더 보여줘')" />
     </aside>
   </div>
 </template>

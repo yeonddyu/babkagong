@@ -4,12 +4,12 @@
 import { computed } from 'vue'
 import type { Recommendation } from '../types'
 
-const props = defineProps<{ rec: Recommendation; index: number; conditions: Record<string, any> }>()
+const props = withDefaults(defineProps<{ rec: Recommendation; index: number; conditions: Record<string, any>; cafeIndex?: number }>(), { cafeIndex: 0 })
 
 const hhmm = (t: unknown) => (typeof t === 'string' && /^\d{2}:\d{2}/.test(t) ? t.slice(0, 5) : null)
 const base = computed(() => props.conditions?.base ?? {})
 const endBy = computed(() => hhmm(props.conditions?.constraint?.end_by))
-const cafe = computed(() => props.rec.cafes[0] ?? null)
+const cafe = computed(() => props.rec.cafes[props.cafeIndex] ?? props.rec.cafes[0] ?? null)
 
 const steps = computed(() => {
   const mealTime = hhmm(base.value.meal_time)

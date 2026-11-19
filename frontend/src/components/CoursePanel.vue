@@ -5,10 +5,15 @@ import MapPanel from './MapPanel.vue'
 import MenuRoulette from './MenuRoulette.vue'
 import RecommendationCard from './RecommendationCard.vue'
 import WeatherStrip from './WeatherStrip.vue'
+import { chooseCafe, courseState, focusPlace, selectCourse } from '../stores/course'
 import type { ChatResponse } from '../types'
 
 defineProps<{ result: ChatResponse | null; selected: number; savingIndex: number | null; busy: boolean }>()
-defineEmits<{ select: [index: number]; save: [index: number]; more: [] }>()
+const emit = defineEmits<{ select: [index: number]; save: [index: number]; more: [] }>()
+function select(i: number) {
+  selectCourse(i)
+  emit('select', i)
+}
 </script>
 
 <template>
@@ -21,9 +26,10 @@ defineEmits<{ select: [index: number]; save: [index: number]; more: [] }>()
     <template v-else>
       <WeatherStrip :weather="result.weather" :policy="result.weather_policy" />
       <MapPanel v-if="result.recommendations.length" :recommendations="result.recommendations" :selected="selected"
-                @select="$emit('select', $event)" />
+                :cafe-choice="courseState.cafeChoice" :focus="courseState.focus"
+                @select="select" @focus="focusPlace" @choose-cafe="chooseCafe" />
       <CourseTimeline v-if="result.recommendations[selected]" :rec="result.recommendations[selected]!" :index="selected"
-                      :conditions="result.conditions" />
+                      :cafe-index="courseState.cafeChoice[selected] ?? 0" :conditions="result.conditions" />
       <div v-if="!result.recommendations.length" class="empty card">
         <p class="empty-title">조건에 맞는 코스를 찾지 못했어요</p>
         <p v-if="result.stop_reason" class="small">{{ result.stop_reason }}</p>
@@ -34,14 +40,15 @@ defineEmits<{ select: [index: number]; save: [index: number]; more: [] }>()
       <p v-if="result.more && result.recommendations.length" class="more-note small">앞서 보여 드린 곳은 빼고 같은 조건으로 다시 골랐어요</p>
       <div v-if="result.recommendations.length" class="recs">
         <div v-for="(r, ri) in result.recommendations" :key="r.source + r.source_id"
-             class="rec-wrap" :class="{ on: selected === ri }" @click="$emit('select', ri)">
-          <RecommendationCard :rec="r" :index="ri" :saving="busy && savingIndex === ri" @save="$emit('save', $event)" />
+             class="rec-wrap" :class="{ on: selected === ri }" @click="select(ri)">
+          <RecommendationCard :rec="r" :index="ri" :saving="busy && savingIndex === ri" :cafe-index="courseState.cafeChoice[ri] ?? 0"
+                              @save="$emit('save', $event)" @choose-cafe="chooseCafe" @focus="focusPlace" />
         </div>
       </div>
       <button v-if="result.recommendations.length" class="btn more-btn" :disabled="busy" @click="$emit('more')">
         {{ busy ? '찾는 중…' : '다른 곳 더 보기' }}
       </button>
-      <MenuRoulette :recommendations="result.recommendations" @select="$emit('select', $event)" />
+      <MenuRoulette :recommendations="result.recommendations" @select="select" />
       <details v-if="result.criteria.length || result.excluded.length" class="card small basis">
         <summary>판단 기준과 제외한 후보 ({{ result.excluded.length }})</summary>
         <ul><li v-for="c in result.criteria" :key="c">{{ c }}</li></ul>

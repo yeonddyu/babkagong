@@ -4,8 +4,12 @@
 import { computed } from 'vue'
 import type { Recommendation } from '../types'
 
-const props = defineProps<{ rec: Recommendation; index: number; saving?: boolean }>()
-defineEmits<{ save: [index: number] }>()
+const props = withDefaults(defineProps<{ rec: Recommendation; index: number; saving?: boolean; cafeIndex?: number }>(), { cafeIndex: 0 })
+const emit = defineEmits<{
+  save: [index: number]
+  chooseCafe: [course: number, cafe: number]
+  focus: [f: { kind: 'meal' | 'cafe'; course: number; cafe: number }]
+}>()
 
 const won = (v: number | null) => (v ? `${v.toLocaleString()}원` : '가격 미확인')
 const resultClass = (r: string) => (r === 'pass' ? 'ok' : r === 'fail' ? 'bad' : 'warn')
@@ -18,11 +22,12 @@ const sourceLabel = (s: string) =>
     gangnam_rest_food_license: '강남구 휴게음식점',
   })[s] ?? s
 
-const mainCafe = computed(() => props.rec.cafes[0] ?? null)
+const chosen = computed(() => (props.rec.cafes[props.cafeIndex] ? props.cafeIndex : 0))
+const mainCafe = computed(() => props.rec.cafes[chosen.value] ?? null)
 // 예산 조건이 있으면 예산 내 메뉴, 없으면 가격이 확인된 대표 메뉴
 const menus = computed(() => (props.rec.matched_menus.length ? props.rec.matched_menus : props.rec.sample_menus ?? []))
 const menuLabel = computed(() => (props.rec.matched_menus.length ? '예산 안 메뉴' : '대표 메뉴'))
-const otherCafes = computed(() => props.rec.cafes.slice(1))
+const otherCafes = computed(() => props.rec.cafes.map((c, i) => ({ c, i })).filter(({ i }) => i !== chosen.value))
 </script>
 
 <template>
@@ -33,7 +38,7 @@ const otherCafes = computed(() => props.rec.cafes.slice(1))
         <h3>{{ rec.name }}</h3>
         <p class="muted small">{{ rec.address ?? '주소 미확인' }}</p>
       </div>
-      <button class="btn primary save" :disabled="saving" @click.stop="$emit('save', index)">
+      <button class="btn primary save" :disabled="saving" @click.stop="emit('save', index)">
         {{ saving ? '저장 중…' : '이 코스 저장' }}
       </button>
     </header>
@@ -63,6 +68,8 @@ const otherCafes = computed(() => props.rec.cafes.slice(1))
       <li v-for="u in rec.unverified" :key="u" class="small">{{ u }}</li>
     </ul>
 
+    <button class="btn map-btn small" @click.stop="emit('focus', { kind: 'meal', course: index, cafe: chosen })">지도에서 식당 보기</button>
+
     <section class="cafes">
       <h4>식사 후 카공 카페</h4>
       <p v-if="!mainCafe" class="muted small">{{ rec.cafe_notice ?? '주변 카페를 찾지 못했어요.' }}</p>
@@ -75,15 +82,18 @@ const otherCafes = computed(() => props.rec.cafes.slice(1))
             식당에서 직선 {{ mainCafe.distance_m ?? '?' }}m<span v-if="mainCafe.estimated_walk_minutes"> · 도보 약 {{ mainCafe.estimated_walk_minutes }}분(추정)</span>
             · {{ sourceLabel(mainCafe.source) }}
           </div>
+          <div class="small cafe-facts"><span class="unknown">영업시간 확인 필요</span> · <span class="unknown">콘센트·와이파이 확인 필요</span></div>
         </div>
+        <button class="btn map-btn small" @click.stop="emit('focus', { kind: 'cafe', course: index, cafe: chosen })">지도 보기</button>
       </div>
       <details v-if="otherCafes.length" class="more small" @click.stop>
         <summary>근처 카페 {{ otherCafes.length }}곳 더 보기</summary>
         <ul>
-          <li v-for="c in otherCafes" :key="c.source + c.source_id">
+          <li v-for="{ c, i } in otherCafes" :key="c.source + c.source_id">
             <a v-if="c.place_url" :href="c.place_url" target="_blank" rel="noopener">{{ c.name }}</a>
             <strong v-else>{{ c.name }}</strong>
             <span class="muted"> · 직선 {{ c.distance_m ?? '?' }}m · {{ c.road_address ?? c.address ?? '주소 미확인' }}</span>
+            <button class="btn tiny" @click.stop="emit('chooseCafe', index, i)">이 카페로 바꾸기</button>
           </li>
         </ul>
       </details>
@@ -130,5 +140,11 @@ const otherCafes = computed(() => props.rec.cafes.slice(1))
 .more summary, .basis summary { cursor: pointer; color: var(--muted); }
 .more ul, .check-list { list-style: none; padding: 0; margin: 6px 0 0; display: grid; gap: 4px; }
 .note { margin: 0; }
+.cafe-facts { margin-top: 2px; }
+.unknown { color: var(--warn); }
+.map-btn { justify-self: start; border-radius: 999px; padding: 4px 12px; background: #fff; }
+.main-cafe .map-btn { margin-left: auto; flex: none; }
+.tiny { padding: 2px 10px; border-radius: 999px; font-size: 12px; margin-left: 6px; }
+.btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 @media (max-width: 600px) { .rec-head { flex-wrap: wrap; } .save { width: 100%; } }
 </style>

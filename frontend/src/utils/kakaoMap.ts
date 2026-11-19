@@ -5,7 +5,8 @@
 let loading: Promise<any | null> | null = null
 
 export function kakaoMapKey(): string | undefined {
-  const key = import.meta.env.VITE_KAKAO_MAP_KEY as string | undefined
+  // 지시서 예시 이름(VITE_KAKAO_JS_KEY)과 기존 이름(VITE_KAKAO_MAP_KEY) 모두 허용
+  const key = (import.meta.env.VITE_KAKAO_MAP_KEY || import.meta.env.VITE_KAKAO_JS_KEY) as string | undefined
   return key && key.trim() ? key.trim() : undefined
 }
 

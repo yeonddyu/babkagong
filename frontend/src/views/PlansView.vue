@@ -2,7 +2,8 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api, ApiError } from '../api'
-import type { Conflict, Plan } from '../types'
+import MapPanel from '../components/MapPanel.vue'
+import type { Conflict, Plan, Recommendation } from '../types'
 
 const route = useRoute()
 const router = useRouter()
@@ -18,6 +19,22 @@ const form = ref<Partial<Plan>>({})
 const selectedId = computed(() => (route.params.id ? Number(route.params.id) : null))
 const selected = computed(() => plans.value.find((p) => p.id === selectedId.value) ?? null)
 const hhmm = (t: string) => t.slice(0, 5)
+
+// 저장한 코스를 지도에 다시 표시 (저장 당시 확인된 좌표가 있을 때만)
+const planCourse = computed<Recommendation[] | null>(() => {
+  const p = selected.value
+  if (!p || p.restaurant_lat == null || p.restaurant_lng == null) return null
+  return [{
+    name: p.restaurant_name, source: p.restaurant_source ?? '', source_id: p.restaurant_source_id ?? '', address: p.restaurant_address,
+    area: p.area, latitude: p.restaurant_lat, longitude: p.restaurant_lng, category: null, food_type: null, distance_m: null,
+    estimated_walk_minutes: null, matched_menus: [], business_hours: null, checks: [], score: 0, score_reasons: [], unverified: [],
+    cafes: p.cafe_name && p.cafe_lat != null && p.cafe_lng != null ? [{
+      name: p.cafe_name, source: p.cafe_source ?? '', source_id: p.cafe_source_id ?? '', road_address: p.cafe_address, address: null,
+      latitude: p.cafe_lat, longitude: p.cafe_lng, distance_m: null, distance_basis: null, estimated_walk_minutes: null,
+      place_url: p.cafe_url, phone: null }] : [],
+    cafe_notice: null,
+  }]
+})
 
 async function load() {
   loading.value = true
@@ -117,6 +134,11 @@ onMounted(load)
             <span class="muted small"> {{ selected.cafe_address }}</span>
           </dd>
           <dt>메모</dt><dd>{{ selected.memo || '-' }}</dd>
+          <dt>지도</dt>
+          <dd>
+            <MapPanel v-if="planCourse" :key="selected.id" class="plan-map" :recommendations="planCourse" :selected="0" :interactive="false" />
+            <span v-else class="muted small">저장 당시 좌표가 없어 지도로 보여 줄 수 없어요 (이전에 저장한 계획)</span>
+          </dd>
           <dt>생성</dt><dd class="small">{{ selected.created_at.slice(0, 16).replace('T', ' ') }}</dd>
           <dt>수정</dt><dd class="small">{{ selected.updated_at.slice(0, 16).replace('T', ' ') }}</dd>
         </dl>
@@ -159,6 +181,7 @@ dl { display: grid; grid-template-columns: 80px 1fr; gap: 8px; margin: 0; }
 dt { color: var(--muted); font-size: 13px; }
 dd { margin: 0; }
 .actions { display: flex; gap: 8px; }
+.plan-map { --map-h: 260px; }
 .edit { display: grid; gap: 10px; }
 .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 @media (max-width: 760px) { .plans { grid-template-columns: 1fr; } }
