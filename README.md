@@ -38,7 +38,7 @@ cd backend && ../.venv/bin/python -m scripts.build_cache
 ## 테스트
 ```bash
 cd backend && ../.venv/bin/python -m pytest                      # Mock 단위 테스트 (233)
-cd backend && ../.venv/bin/python -m pytest -m integration -rs   # 실제 외부 API (키 없거나 카카오 비활성 시 BLOCKED skip)
+cd backend && ../.venv/bin/python -m pytest -m integration -rs   # 실제 외부 API (키가 없으면 BLOCKED skip)
 cd backend && ../.venv/bin/python -m scripts.run_scenarios       # 대표 시나리오 10개 (실제 API) → docs/scenario_results.md
 cd backend && ../.venv/bin/python -m scripts.verify_apis         # API 연결 검증 (키 마스킹)
 .venv/bin/python backend/scripts/check_secrets.py                # 저장소에 키 값이 없는지 점검
@@ -61,7 +61,6 @@ cd frontend && npm test && npm run build
 | [docs/implementation_report.md](docs/implementation_report.md) | 구현 결과 보고 |
 
 ## 현재 제한
-- 카카오 로컬: 앱의 카카오맵 서비스가 비활성(403)이라 카페는 강남구 휴게음식점 인허가(링크 없음)로 대체 중
 - OpenAI 키 없음: 요청 분석·응답 문장은 규칙/템플릿으로 처리 (LLM 경로는 코드·스텁 테스트만)
 - SSAFY GMS: 키만 등록, 모델 연동은 범위 밖
 - 출처 표기: 날씨 정보 출처 기상청(공공누리 제1유형)

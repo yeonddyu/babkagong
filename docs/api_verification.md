@@ -1,6 +1,6 @@
 # 외부 API 실제 연결 검증 기록 (NF3007)
 
-- 최종 검증: 2026-11-19 14:40 KST (1차 기록 2026-11-18 은 키 미발급으로 대부분 BLOCKED 였음)
+- 최종 검증: 2026-11-19 (카카오맵 활성화 후 재검증). 1차 기록 2026-11-18 은 키 미발급으로 대부분 BLOCKED 였음
 - 명령: `cd backend && ../.venv/bin/python -m scripts.verify_apis`, `../.venv/bin/python -m pytest -m integration -v -rs`
 - 비밀키는 URL·로그·문서에 기록하지 않는다 (`serviceKey=***`). `scripts/check_secrets.py` 로 저장소에 키가 없음을 확인.
 - **Mock 단위 테스트 통과는 아래 실제 호출 결과와 별개다.**
@@ -16,14 +16,14 @@
 | 서울 열린데이터광장 강남구 일반음식점 `LOCALDATA_072404_GN` | `http://openapi.seoul.go.kr:8088/***/json/LOCALDATA_072404_GN/1/1000/` | 200 | **PASS** — INFO-000, 51,509건 |
 | 서울 열린데이터광장 강남구 휴게음식점 `LOCALDATA_072405_GN` | `.../***/json/LOCALDATA_072405_GN/1/5/` | 200 | **PASS** — INFO-000, 17,555건 |
 | 기상청 단기예보 `getVilageFcst` | `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst?serviceKey=***&...&nx=61&ny=125` | 200 | **PASS** — resultCode 00, 798건(1발표) |
-| 카카오 로컬 카테고리 검색 CE7 | `https://dapi.kakao.com/v2/local/search/category.json?category_group_code=CE7&x=127.027619&y=37.497952&radius=300` | 403 | **BLOCKED** — `NotAuthorizedError: App(밥카공) disabled OPEN_MAP_AND_LOCAL service` (키는 유효, 앱에서 카카오맵 사용 설정 필요) |
+| 카카오 로컬 카테고리 검색 CE7 | `https://dapi.kakao.com/v2/local/search/category.json?category_group_code=CE7&x=127.027619&y=37.497952&radius=300` | 200 | **PASS** — total_count 101, 15건/페이지, `place_url` 링크 포함 (1차: 앱 카카오맵 비활성으로 403 → 사용자가 활성화 후 통과) |
 | 카카오 (잘못된 키) | 위와 동일 | 401 | PASS — `AccessDeniedError` → `API_ERROR` |
 | OpenAI | - | - | **BLOCKED** — `OPENAI_API_KEY` 미설정. 요청 분석·응답 문장은 규칙/템플릿 경로로 동작 |
 | SSAFY GMS | - | - | **EXCLUDED** — `GMS_API_KEY` 존재 확인만, 모델 연동은 이번 범위 밖 |
 
-데이터 API 3종 이상 확보 조건: 서울관광재단·서울 열린데이터광장·기상청 3개 제공처가 **실제 호출로 확인됨 (충족)**. 카카오가 활성화되면 4종.
+데이터 API 3종 이상 확보 조건: 서울관광재단·서울 열린데이터광장·기상청·카카오 로컬 4개 제공처가 **실제 호출로 확인됨 (충족)**.
 
-통합 테스트 (`pytest -m integration -v -rs`, 2026-11-19): **13 passed, 2 skipped** — skip 2건은 카카오 403 으로 BLOCKED.
+통합 테스트 (`pytest -m integration -v -rs`, 2026-11-19): **15 passed, 0 skipped** (카카오맵 활성화 전 1차: 13 passed, 2 skipped).
 
 ## 2. 제공처별 상세
 
@@ -64,7 +64,7 @@
 | 항목 | 내용 |
 |---|---|
 | 요청 | `GET /v2/local/search/category.json`, 헤더 `Authorization: KakaoAK {키}`, `category_group_code=CE7`, `x`,`y`,`radius`(≤20000),`page`(≤45),`size`(≤15),`sort=distance` |
-| 현재 상태 | 키는 설정되어 있으나 앱 설정에서 카카오맵 서비스 비활성 → 403. **사용자 조치 필요**: 카카오디벨로퍼스 → 내 애플리케이션 → 밥카공 → 카카오맵 사용 설정 ON |
+| 현재 상태 | 실제 호출 PASS (응답 필드: `id, place_name, category_name, phone, address_name, road_address_name, x, y, place_url, distance`). 1차 검증 때는 앱의 카카오맵 서비스 비활성으로 403 이었음 |
 | 호출 한도 | 카카오디벨로퍼스 쿼터 정책(앱 [쿼터] 메뉴), 무료 월간 쿼터는 계정의 첫 활성 앱에 제공 |
 | 이용 조건 | 카카오 API 이용약관. 장소 정보는 응답 시점 결과만 표시하고 저장하지 않음 (대화 Memory 에 이름·링크 요약만) |
 
@@ -73,6 +73,5 @@
 - GMS: 키 존재만 확인. `AI_PROVIDER=gms` 여도 GMS 를 호출하지 않는다.
 
 ## 3. BLOCKED 해제 방법
-1. 카카오: 앱에서 카카오맵 사용 설정 → `pytest -m integration -rs` 의 skip 2건이 PASS 로 바뀌는지 확인
-2. OpenAI: `.env` 에 `OPENAI_API_KEY` 입력 → `/api/health` 의 `llm.available=true`, 응답의 `decided_by=llm` 확인
-3. 갱신 후 `scripts.verify_apis` 결과로 이 문서 1절 갱신
+1. OpenAI: `.env` 에 `OPENAI_API_KEY` 입력 → `/api/health` 의 `llm.available=true`, 응답의 `decided_by=llm` 확인
+2. 갱신 후 `scripts.verify_apis` 결과로 이 문서 1절 갱신

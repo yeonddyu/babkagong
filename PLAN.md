@@ -10,7 +10,7 @@
 | F3001 | Tool 명세 정의 및 등록 | PASS | 해당 없음 | PASS | c1e33eb | 미검증 |
 | F3002 | 음식점 후보 조회 | PASS | PASS (레드테이블·인허가 실제 호출) | PASS | 7de2352, de6c462 | 미검증 |
 | F3003 | 음식점 상세정보 조회 | PASS | PASS (후보 ID → 상세 실제 호출) | PASS | 296297b, 6c53d15 | 미검증 |
-| F3004 | 주변 카페 검색 | PASS | 보조 출처(휴게음식점) PASS / **카카오 BLOCKED** (앱 카카오맵 비활성 403) | BLOCKED (카카오 부분) | 24b6aeb, 89a2176, cfa4460 | 미검증 |
+| F3004 | 주변 카페 검색 | PASS | PASS (카카오 실제 호출 2026-11-19 카카오맵 활성화 후, 보조 출처 휴게음식점도 PASS) | PASS | 24b6aeb, 89a2176, cfa4460 | 미검증 |
 | weather | 기상청 날씨 조회 | PASS | PASS | PASS | 0f5e27d | 미검증 |
 | F3005 | 사용자 요청 분석 | PASS | 규칙 경로 PASS / **LLM 경로 BLOCKED** (OPENAI_API_KEY 없음) | PASS (규칙) | 730901d, f09a082 | 미검증 |
 | F3006 | 작업 계획 수립 | PASS | PASS (시나리오 S1·S5·S6) | PASS | 9bddf88 | 미검증 |
@@ -32,7 +32,7 @@
 |---|---|---|---|
 | NF3001 | API 키 환경변수 관리 | `.env` 만 사용, `scripts/check_secrets.py` 결과 키 포함 파일 없음 | PASS |
 | NF3002 | 화면 노출 제한 | API 오류 공통 형식·내부 예외 미노출 테스트, 타임라인은 오류 코드 안내만 | PASS |
-| NF3003 | Tool 실패 처리 | 레지스트리 예외 차단, 출처별 격리, S4 (카카오 403 + 날씨 키 없음) 추천 계속 | PASS |
+| NF3003 | Tool 실패 처리 | 레지스트리 예외 차단, 출처별 격리, S4 (날씨 키 없음) 추천 계속, 카카오 실패 시 보조 출처 전환(통합 테스트) | PASS |
 | NF3004 | 재계획 상한 | MAX_REPLANS=3, S3 에서 3회 후 중단 | PASS |
 | NF3005 | 응답 시간 | 대표 요청 0.0~3.1초 (캐시 구축 후). 첫 캐시 구축은 약 5분 → `scripts.build_cache` 로 사전 구축. 상세조회 160ms→0.2ms 개선 | PASS (조건부) |
 | NF3006 | 모듈 분리 | backend/frontend 분리, agent·tools·clients·events·storage·api 파일 분리 | PASS |
@@ -41,6 +41,5 @@
 ## 남은 외부 조치
 | 항목 | 조치 |
 |---|---|
-| 카카오 로컬 | 카카오디벨로퍼스 → 밥카공 앱 → 카카오맵 사용 설정 ON 후 통합 테스트 재실행 |
 | OpenAI | `.env` 에 `OPENAI_API_KEY` 설정 후 LLM 경로 검증 |
 | Codex | 독립 검증 수행 |

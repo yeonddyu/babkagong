@@ -7,12 +7,12 @@
 
 | 구분 | 결과 |
 |---|---|
-| 필수 기능 F3001~F3019 | 19개 중 **PASS 18**, **BLOCKED 1** (F3004 카카오 연동 부분) |
+| 필수 기능 F3001~F3019 | 19개 **PASS** (F3004 카카오는 사용자가 카카오맵 활성화 후 재검증해 PASS) |
 | 부분 BLOCKED | F3005 LLM 분석 경로, F3011 LLM 문장 경로 — OPENAI_API_KEY 없음 (규칙/템플릿 경로는 PASS) |
 | 추가 기능 (기상청 날씨) | PASS (실제 호출) |
 | 비기능 NF3001~NF3007 | 7개 PASS (NF3005 는 캐시 사전 구축 조건) |
 | 대표 시나리오 | 실제 API 10/10 PASS (`docs/scenario_results.md`) |
-| 테스트 | 백엔드 단위 233 passed / 통합 13 passed·2 skipped(BLOCKED) / 프론트 vitest 9 passed / build 통과 |
+| 테스트 | 백엔드 단위 233 passed / 통합 15 passed·0 skipped / 프론트 vitest 9 passed / build 통과 |
 
 요구사항별 상세는 `PLAN.md`.
 
@@ -23,7 +23,7 @@
 | F3001 | `app/tools/common.py`, `registry.py`, `catalog.py` | `test_f3001_registry.py` | - | c1e33eb |
 | F3002 | `app/tools/restaurant_candidates.py`, `app/datasets/restaurants.py`, `app/clients/redtable.py`, `seoul_opendata.py` | `test_f3002_*`, `test_live_f3002.py` | 레드테이블·인허가 실제 | 7de2352, de6c462 |
 | F3003 | `app/tools/restaurant_details.py` | `test_f3003_*`, `test_live_f3003.py` | 후보 ID→상세 실제 | 296297b, 6c53d15 |
-| F3004 | `app/tools/nearby_cafes.py`, `app/clients/kakao_local.py` | `test_f3004_*`, `test_live_f3004.py` | 휴게음식점 보조 실제 PASS, 카카오 403 BLOCKED | 24b6aeb, 89a2176, cfa4460 |
+| F3004 | `app/tools/nearby_cafes.py`, `app/clients/kakao_local.py` | `test_f3004_*`, `test_live_f3004.py` | 카카오 실제 PASS, 휴게음식점 보조 실제 PASS | 24b6aeb, 89a2176, cfa4460 |
 | weather | `app/tools/weather.py`, `app/clients/kma.py` | `test_weather.py`, `test_live_weather.py` | 기상청 실제 | 0f5e27d |
 | F3005 | `app/agent/analysis.py`, `conditions.py` | `test_f3005_analysis.py` | 규칙 경로 | 730901d, f09a082 |
 | F3006 | `app/agent/planning.py` | `test_f3006_planning.py` | S1·S5·S6 | 9bddf88 |
@@ -58,12 +58,11 @@
 1. **F3016 커밋 f0fc2de 는 테스트 1건 실패 상태로 생성됨.** 커밋 명령에서 pytest 종료 코드 대신 `tail` 종료 코드를 확인한 실수. 직후 ca1879d 에서 원인(SQLite 시간대 손실)을 수정하고 전체 통과 확인. 이후 커밋은 pytest 종료 코드로 검사.
 2. 커밋 메시지의 테스트 수 오기: 9bddf88(F3006) "138 passed" → 실제 137, 494becf(F3019) "235 passed" → 실제 233. 승인 없는 amend 금지 규칙에 따라 커밋은 수정하지 않고 여기에 기록.
 3. 대표 시나리오 S2 1차 실행 FAIL — 실제 데이터에서 재계획이 일어나지 않는 요청을 고른 시나리오 선택 오류. 요청을 교체 후 PASS, `docs/scenario_results.md` 에 기록.
-4. 2026-11-18 STEP1 커밋(F3002~F3004)은 당시 키 미발급으로 'BLOCKED' 표기. 2026-11-19 실제 키로 통합 테스트 통과(카카오 제외).
+4. 2026-11-18 STEP1 커밋(F3002~F3004)은 당시 키 미발급으로 'BLOCKED' 표기. 2026-11-19 실제 키로 통합 테스트 통과, 카카오는 같은 날 사용자가 카카오맵을 활성화한 뒤 재검증해 통과.
 
 ## 5. 미해결
 | 항목 | 영향 | 조치 |
 |---|---|---|
-| 카카오맵 서비스 비활성(403) | 카페 링크·카카오 거리 미사용, 휴게음식점 보조 사용 | 사용자 앱 설정 |
 | OPENAI_API_KEY 없음 | LLM 의도 분석·문장 생성 미검증 (스텁만) | 키 설정 후 검증 |
 | 첫 캐시 구축 약 5분 | 캐시 없을 때 첫 요청 지연 | `scripts.build_cache` 사전 실행 |
 | 레드테이블 메뉴 보유 식당 19% | 예산 조건 시 '가격 미확인' 제외가 많아 재계획 빈발 | 데이터 한계, 응답에 사유·제안 표시 |
