@@ -189,7 +189,12 @@ def create_tool(
             fetched["menu"] = menu_meta.get("fetched_at")
             rows = by_id.get(source_id)
             if rows:
-                menus = [m for m in (_menu(r) for r in rows) if m]
+                menus = []
+                seen: set[tuple[str, int | None]] = set()
+                for m in (_menu(r) for r in rows):
+                    if m and (m.name, m.price_krw) not in seen:  # 원본의 중복 행 제거
+                        seen.add((m.name, m.price_krw))
+                        menus.append(m)
                 menu_status = "found" if menus else "not_found"
             else:
                 menus, menu_status = [], "not_found"

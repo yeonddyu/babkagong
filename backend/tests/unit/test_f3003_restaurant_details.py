@@ -139,3 +139,9 @@ def test_menu_api_failure_is_isolated(make_settings):
     assert data["menus"] is None and data["menu_status"] == "error"
     assert data["section_errors"] == [{"section": "menu", "code": "TIMEOUT", "message": data["section_errors"][0]["message"]}]
     assert data["operation_status"] == "found"  # 운영정보는 정상 반환
+
+
+def test_duplicate_menu_rows_deduplicated(make_settings):
+    dup = MENU_ROWS[:1] * 3 + MENU_ROWS[1:]
+    data = ok_data(registry(make_settings, session(menu=dup)).invoke(TOOL, {"source": "seoul_tourism_redtable", "source_id": "101"}))
+    assert [m["name"] for m in data["menus"]].count("김치찌개") == 1
