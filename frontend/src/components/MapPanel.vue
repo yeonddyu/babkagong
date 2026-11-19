@@ -59,6 +59,8 @@ let kakao: any = null
 let map: any = null
 let overlays: any[] = []
 let line: any = null
+let resizeObs: ResizeObserver | null = null
+let lastSize = ''
 
 function clearKakao() {
   overlays.forEach((o) => o.setMap(null))
@@ -114,8 +116,20 @@ onMounted(async () => {
   const first = pins.value[0]
   map = new kakao.maps.Map(mapEl.value, { center: new kakao.maps.LatLng(first?.lat ?? 37.4993, first?.lng ?? 127.032), level: 4 })
   drawKakao()
+  // 숨겨진 탭(모바일)에서 만들어졌거나 창 크기가 바뀌면 지도 크기를 다시 계산하고 범위를 맞춘다
+  if (typeof ResizeObserver !== 'undefined') {
+    resizeObs = new ResizeObserver(([entry]) => {
+      const { width, height } = entry!.contentRect
+      const size = `${Math.round(width)}x${Math.round(height)}`
+      if (!width || !height || size === lastSize) return
+      lastSize = size
+      map.relayout()
+      drawKakao()
+    })
+    resizeObs.observe(mapEl.value)
+  }
 })
-onBeforeUnmount(clearKakao)
+onBeforeUnmount(() => { clearKakao(); resizeObs?.disconnect() })
 watch([pins, () => props.selected], () => { if (mode.value === 'kakao') drawKakao() })
 
 // ---------------------------------------------------------------- 좌표 위치도 (키가 없을 때)

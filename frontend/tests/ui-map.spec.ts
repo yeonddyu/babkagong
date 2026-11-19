@@ -51,7 +51,7 @@ describe('카카오 지도', () => {
     ;(window as any).kakao = { maps: {
       LatLng,
       LatLngBounds: class { pts: any[] = []; extend(p: any) { this.pts.push(p) } },
-      Map: class { bounds: any; setBounds(b: any) { this.bounds = b } },
+      Map: class { bounds: any; relayouts = 0; setBounds(b: any) { this.bounds = b } relayout() { this.relayouts++ } },
       CustomOverlay: class { constructor(public opts: any) { overlays.push(this) } setMap() {} },
       Polyline: class { constructor(public opts: any) { lines.push(this) } setMap() {} },
     } }
