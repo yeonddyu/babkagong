@@ -1,4 +1,8 @@
-"""메인 Agent (LangGraph): 분석 → 계획 → 실행 → 판단 → 응답."""
+"""메인 Agent (LangGraph): 분석 → 계획 → 실행 → 판단 → (재계획 → 실행) → 응답.
+
+재계획(F3009): 충족 후보가 0건일 때만, 상한 MAX_REPLANS(기본 3)까지. 키 누락처럼 다시 해도
+같은 실패는 재계획하지 않는다. 이미 호출한 (tool, args) 결과는 ToolExecutor 캐시에서 재사용한다.
+"""
 from __future__ import annotations
 
 import uuid
@@ -29,6 +33,11 @@ class AgentState(TypedDict, total=False):
     executor: ToolExecutor
     data: ExecutionData
     evaluation: Evaluation
+    search_area: str | None
+    replan_count: int
+    replan_history: list[dict[str, Any]]
+    stop_reason: str | None
+    judge_route: str
     response: dict[str, Any]
 
 
@@ -38,11 +47,13 @@ class MainAgent:
         registry: ToolRegistry,
         *,
         llm: Any | None = None,
+        max_replans: int = 3,
         today_fn: Callable[[], date] = lambda: now_kst().date(),
         now_fn: Callable[[], datetime] = now_kst,
     ):
         self.registry = registry
         self.llm = llm
+        self.max_replans = max_replans
         self.today_fn = today_fn
         self.now_fn = now_fn
         self.graph = self._build()
@@ -54,12 +65,14 @@ class MainAgent:
         g.add_node("plan", self.plan_node)
         g.add_node("execute", self.execute_node)
         g.add_node("judge", self.judge_node)
+        g.add_node("replan", self.replan_node)
         g.add_node("respond", self.respond_node)
         g.add_edge(START, "analyze")
         g.add_conditional_edges("analyze", self._after_analyze, {"plan": "plan", "respond": "respond"})
         g.add_conditional_edges("plan", self._after_plan, {"execute": "execute", "respond": "respond"})
         g.add_edge("execute", "judge")
-        g.add_edge("judge", "respond")
+        g.add_conditional_edges("judge", self._after_judge, {"replan": "replan", "respond": "respond"})
+        g.add_conditional_edges("replan", self._after_replan, {"execute": "execute", "respond": "respond"})
         g.add_edge("respond", END)
         return g.compile()
 
@@ -89,7 +102,7 @@ class MainAgent:
         ex: ToolExecutor = state["executor"]
         data: ExecutionData = state["data"]
         cond: Conditions = state["conditions"]
-        area = cond.preference.area
+        area = state.get("search_area") or cond.preference.area
         tools = [s.tool for s in state["plan"].steps]
         today = self.today_fn()
         if "get_weather_context" in tools and data.weather is None and data.weather_error is None:
@@ -110,7 +123,53 @@ class MainAgent:
         run_cafes(ex, data, targets, cafe_radius(cond, data.weather))
 
     def judge_node(self, state: AgentState) -> dict[str, Any]:
-        return {"evaluation": evaluate(state["data"], state["conditions"], self.today_fn())}
+        ev = evaluate(state["data"], state["conditions"], self.today_fn())
+        route, stop_reason = self._replan_decision(state, ev)
+        return {"evaluation": ev, "judge_route": route, "stop_reason": stop_reason}
+
+    def _replan_decision(self, state: AgentState, ev: Evaluation) -> tuple[str, str | None]:
+        if ev.satisfied:
+            return "respond", None
+        data: ExecutionData = state["data"]
+        if ev.hard_failure:
+            return "respond", f"재시도해도 같은 실패({ev.hard_failure['code']})라 재계획하지 않음"
+        if data.candidate_error and not data.candidates and data.candidate_error.get("code") != "NO_RESULT":
+            return "respond", f"음식점 후보 조회 실패({data.candidate_error['code']})로 재계획하지 않음"
+        if state.get("replan_count", 0) >= self.max_replans:
+            return "respond", f"재계획 상한({self.max_replans}회)에 도달"
+        return "replan", None
+
+    def _after_judge(self, state: AgentState) -> str:
+        return state["judge_route"]
+
+    def replan_node(self, state: AgentState) -> dict[str, Any]:
+        """충족 후보가 없을 때 대안 전략을 고른다. 이미 확보한 결과는 그대로 둔다."""
+        data: ExecutionData = state["data"]
+        cond: Conditions = state["conditions"]
+        count = state.get("replan_count", 0) + 1
+        history = list(state.get("replan_history", []))
+        ev: Evaluation = state["evaluation"]
+        reason = f"충족 후보 0건 (판단한 {len(ev.excluded)}곳 모두 제외)"
+        if data.detailed_count < len(data.candidates):
+            strategy = "next_batch"
+            detail = f"상세정보를 아직 조회하지 않은 후보 {data.detailed_count + 1}~{min(len(data.candidates), data.detailed_count + 6)}번째 조회"
+            update: dict[str, Any] = {}
+        else:
+            current = state.get("search_area") or cond.preference.area
+            other = "역삼역" if current == "강남역" else "강남역"
+            if other not in data.areas_searched:
+                strategy = "adjacent_area"
+                detail = f"{current} 후보를 모두 확인해 인접한 {other} 주변을 같은 조건으로 탐색"
+                update = {"search_area": other}
+            else:
+                strategy = "none"
+                detail = "더 탐색할 후보와 지역이 없음"
+                update = {"stop_reason": "탐색 가능한 대안이 없음"}
+        history.append({"count": count, "reason": reason, "strategy": strategy, "detail": detail})
+        return {"replan_count": count, "replan_history": history, **update}
+
+    def _after_replan(self, state: AgentState) -> str:
+        return "respond" if state["replan_history"][-1]["strategy"] == "none" else "execute"
 
     def respond_node(self, state: AgentState) -> dict[str, Any]:
         analysis: AnalysisResult = state["analysis"]
@@ -132,6 +191,10 @@ class MainAgent:
             "area_hint": area_hint,
             "executor": ToolExecutor(self.registry),
             "data": ExecutionData(),
+            "search_area": None,
+            "replan_count": 0,
+            "replan_history": [],
+            "stop_reason": None,
         }
         final = self.graph.invoke(state)
         ex: ToolExecutor = final["executor"]
@@ -144,5 +207,7 @@ class MainAgent:
             "tool_calls": [asdict(c) for c in ex.calls],
             "data": final["data"],
             "evaluation": final.get("evaluation"),
+            "replans": final.get("replan_history", []),
+            "stop_reason": final.get("stop_reason"),
             "response": final["response"],
         }
