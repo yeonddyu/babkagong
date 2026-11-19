@@ -20,6 +20,7 @@ from app.agent.memory import InMemoryMemoryStore, MemoryStore, build_memory, res
 from app.agent.planning import CAFE_TARGETS, Plan, build_plan
 from app.agent.respond import build_response
 from app.datasets.cache import now_kst
+from app.events.bus import EventBus, RunPublisher
 from app.tools.registry import ToolRegistry
 
 
@@ -42,6 +43,7 @@ class AgentState(TypedDict, total=False):
     replan_history: list[dict[str, Any]]
     stop_reason: str | None
     judge_route: str
+    publisher: RunPublisher
     response: dict[str, Any]
 
 
@@ -53,6 +55,7 @@ class MainAgent:
         llm: Any | None = None,
         max_replans: int = 3,
         memory: MemoryStore | None = None,
+        bus: EventBus | None = None,
         today_fn: Callable[[], date] = lambda: now_kst().date(),
         now_fn: Callable[[], datetime] = now_kst,
     ):
@@ -60,6 +63,7 @@ class MainAgent:
         self.llm = llm
         self.max_replans = max_replans
         self.memory = memory or InMemoryMemoryStore()
+        self.bus = bus or EventBus()  # 구독자가 없어도 동작 (발행자는 구독자를 모름)
         self.today_fn = today_fn
         self.now_fn = now_fn
         self.graph = self._build()
@@ -67,12 +71,12 @@ class MainAgent:
     # ------------------------------------------------------------ graph
     def _build(self):
         g = StateGraph(AgentState)
-        g.add_node("analyze", self.analyze_node)
-        g.add_node("plan", self.plan_node)
-        g.add_node("execute", self.execute_node)
-        g.add_node("judge", self.judge_node)
-        g.add_node("replan", self.replan_node)
-        g.add_node("respond", self.respond_node)
+        g.add_node("analyze", self._stage("analyze", self.analyze_node))
+        g.add_node("plan", self._stage("plan", self.plan_node))
+        g.add_node("execute", self._stage("execute", self.execute_node))
+        g.add_node("judge", self._stage("judge", self.judge_node))
+        g.add_node("replan", self._stage("replan", self.replan_node))
+        g.add_node("respond", self._stage("respond", self.respond_node))
         g.add_edge(START, "analyze")
         g.add_conditional_edges("analyze", self._after_analyze, {"plan": "plan", "respond": "respond"})
         g.add_conditional_edges("plan", self._after_plan, {"execute": "execute", "respond": "respond"})
@@ -81,6 +85,42 @@ class MainAgent:
         g.add_conditional_edges("replan", self._after_replan, {"execute": "execute", "respond": "respond"})
         g.add_edge("respond", END)
         return g.compile()
+
+    def _stage(self, name: str, fn: Callable[[AgentState], dict[str, Any]]) -> Callable[[AgentState], dict[str, Any]]:
+        """노드 진입·종료를 이벤트로 발행하는 래퍼 (F3012)."""
+
+        def wrapped(state: AgentState) -> dict[str, Any]:
+            pub: RunPublisher = state["publisher"]
+            pub.emit("stage_start", stage=name)
+            update = fn(state)
+            pub.emit("stage_end", stage=name, **self._stage_summary(name, {**state, **update}))
+            return update
+
+        return wrapped
+
+    @staticmethod
+    def _stage_summary(name: str, st: dict[str, Any]) -> dict[str, Any]:
+        if name == "analyze":
+            a: AnalysisResult = st["analysis"]
+            return {"intent": a.intent, "reason": a.reason, "decided_by": a.decided_by,
+                    "conditions": st["conditions"].filled_fields(), "changed_fields": st.get("changed_fields", [])}
+        if name == "plan":
+            p: Plan = st["plan"]
+            return {"mode": p.mode, "tools": [x.tool for x in p.steps], "reason": p.reason}
+        if name == "execute":
+            d: ExecutionData = st["data"]
+            return {"candidates": len(d.candidates), "detailed": d.detailed_count, "cafes_for": len(d.cafes),
+                    "weather": d.weather is not None, "area": st.get("search_area") or st["conditions"].preference.area}
+        if name == "judge":
+            ev: Evaluation = st["evaluation"]
+            return {"satisfied": len(ev.satisfied), "excluded": len(ev.excluded), "next": st.get("judge_route"),
+                    "stop_reason": st.get("stop_reason")}
+        if name == "replan":
+            return {"replan": (st.get("replan_history") or [{}])[-1]}
+        if name == "respond":
+            r = st["response"]
+            return {"recommendations": len(r.get("recommendations", [])), "message_by": r.get("message_by")}
+        return {}
 
     def graph_structure(self) -> dict[str, list[str]]:
         drawable = self.graph.get_graph()
@@ -94,13 +134,18 @@ class MainAgent:
             conditions = conditions.model_copy(deep=True)
             conditions.preference.area = state["area_hint"]
             changed.append("preference.area")
+        state["publisher"].emit("llm_decision", stage="analyze", decision=f"intent={analysis.intent}", reason=analysis.reason,
+                                decided_by=analysis.decided_by, used_previous=used_previous)
         return {"analysis": analysis, "conditions": conditions, "changed_fields": changed, "used_previous": used_previous}
 
     def _after_analyze(self, state: AgentState) -> str:
         return "plan" if state["analysis"].intent == "recommend" else "respond"
 
     def plan_node(self, state: AgentState) -> dict[str, Any]:
-        return {"plan": build_plan(state["analysis"], state["conditions"], self.today_fn())}
+        plan = build_plan(state["analysis"], state["conditions"], self.today_fn())
+        state["publisher"].emit("plan_created", stage="plan", mode=plan.mode, reason=plan.reason,
+                                steps=[s.model_dump() for s in plan.steps], excluded_tools=plan.excluded_tools, missing=plan.missing)
+        return {"plan": plan}
 
     def _after_plan(self, state: AgentState) -> str:
         return "execute" if state["plan"].mode == "tools" else "respond"
@@ -173,6 +218,8 @@ class MainAgent:
                 detail = "더 탐색할 후보와 지역이 없음"
                 update = {"stop_reason": "탐색 가능한 대안이 없음"}
         history.append({"count": count, "reason": reason, "strategy": strategy, "detail": detail})
+        state["publisher"].emit("replan", stage="replan", count=count, reason=reason, strategy=strategy, detail=detail,
+                                limit=self.max_replans)
         return {"replan_count": count, "replan_history": history, **update}
 
     def _after_replan(self, state: AgentState) -> str:
@@ -189,23 +236,30 @@ class MainAgent:
     # ------------------------------------------------------------ run
     def run(self, message: str, *, session_id: str | None = None, area_hint: str | None = None) -> dict[str, Any]:
         session_id = session_id or uuid.uuid4().hex
+        run_id = uuid.uuid4().hex
+        publisher = RunPublisher(self.bus, session_id, run_id, clock=self.now_fn)
         previous = self._load_memory(session_id)
+        publisher.emit("run_start", message=message, area_hint=area_hint, has_previous=previous is not None)
         state: AgentState = {
             "session_id": session_id,
             "previous": previous,
-            "run_id": uuid.uuid4().hex,
+            "run_id": run_id,
             "message": message,
             "area_hint": area_hint,
-            "executor": ToolExecutor(self.registry),
+            "executor": ToolExecutor(self.registry, emit=publisher.emit),
             "data": ExecutionData(),
             "search_area": None,
             "replan_count": 0,
             "replan_history": [],
             "stop_reason": None,
+            "publisher": publisher,
         }
         final = self.graph.invoke(state)
         ex: ToolExecutor = final["executor"]
         self._save_memory(final, previous)
+        publisher.emit("run_end", intent=final["analysis"].intent,
+                       recommendations=len(final["response"].get("recommendations", [])),
+                       tool_calls=ex.fresh_call_count, replans=len(final.get("replan_history", [])))
         return {
             "session_id": final["session_id"],
             "run_id": final["run_id"],
@@ -221,6 +275,7 @@ class MainAgent:
             "replans": final.get("replan_history", []),
             "stop_reason": final.get("stop_reason"),
             "response": final["response"],
+            "events": [e.to_dict() for e in publisher.events],
         }
 
     # ------------------------------------------------------------ memory
