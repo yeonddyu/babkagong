@@ -189,6 +189,27 @@ def _template_message(intent: str, body: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _summary(intent: str, body: dict[str, Any]) -> str | None:
+    """대화창용 짧은 요약 (코드 생성, 확정된 값만). 자세한 내용은 카드·지도에 있다.
+    추천 결과가 없거나 추천 의도가 아니면 None — 화면은 전체 메시지를 보여 준다."""
+    recs = body.get("recommendations") or []
+    if intent != "recommend" or body.get("clarify") or not recs:
+        return None
+    top = recs[0]
+    first = f"1순위는 {top['name']}"
+    if top.get("distance_m") is not None:
+        first += f"(역에서 직선 {top['distance_m']}m)"
+    if top.get("cafes"):
+        c = top["cafes"][0]
+        first += f", 식사 후 {c['name']}" + (f"(직선 {c['distance_m']}m)" if c.get("distance_m") is not None else "")
+    lead = "앞서 보여 드린 곳을 빼고 " if body.get("more") else ""
+    lines = [f"{lead}조건에 맞는 코스 {len(recs)}개를 찾았어요. {first}.",
+             "메뉴·가격·카페 후보는 카드와 지도에서 확인해 주세요."]
+    if body.get("disclaimer"):
+        lines.append(body["disclaimer"])
+    return "\n".join(lines)
+
+
 LLM_PROMPT = """아래 JSON 은 밥카공 Agent 가 외부 API 와 코드 계산으로 확정한 결과다.
 이 JSON 에 있는 사실만 사용해 한국어로 6~12줄 추천 메시지를 써라. 규칙:
 - 추천 식당을 순서대로 모두 쓰고, 각 식당마다 cafes 의 첫 번째 카페 이름과 식당에서의 직선거리를 함께 쓴다.
@@ -279,6 +300,7 @@ def build_response(
     }
     body["message"] = _template_message(analysis.intent, body)
     body["message_by"] = "template"
+    body["summary"] = _summary(analysis.intent, body)
     if llm is not None and recommendations:
         try:
             facts = {k: body[k] for k in ("weather", "recommendations", "excluded", "criteria", "notices", "disclaimer")}
