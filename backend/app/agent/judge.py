@@ -72,36 +72,65 @@ def _t(text: str) -> time | None:
 
 
 def open_at(hours_text: str, weekday: int, at: time) -> tuple[Result, str]:
-    """영업시간 원문으로 해당 요일·시각 영업 여부. 파싱할 수 없으면 unknown."""
-    segments = []
-    for m in _SEG.finditer(hours_text):
-        s, e = _t(m.group("s")), _t(m.group("e"))
-        if s and e:
-            segments.append((_days(m.group("days")), s, e))
+    """영업시간 원문으로 해당 요일·시각 영업 여부. 파싱할 수 없으면 unknown.
+
+    쉼표·슬래시로 나눈 구간마다 해석한다. '공휴일' 구간은 공휴일 여부를 알 수 없어 쓰지 않고,
+    '브레이크/휴게' 구간은 영업하지 않는 시간으로 본다.
+    """
+    segments, breaks = [], []
+    for part in re.split(r"[,/\n]", hours_text):
+        if "공휴일" in part:
+            continue
+        is_break = bool(re.search(r"브레이크|break|휴게|쉬는", part, re.IGNORECASE))
+        for m in _SEG.finditer(part):
+            s, e = _t(m.group("s")), _t(m.group("e"))
+            if s and e:
+                (breaks if is_break else segments).append((_days(m.group("days")), s, e))
     if not segments:
         return "unknown", "영업시간 형식을 해석할 수 없음"
     applicable = [(s, e) for days, s, e in segments if weekday in days]
     if not applicable:
         return "unknown", f"{WEEKDAY_NAMES[weekday]}요일 영업시간 정보 없음"
+
+    def inside(s: time, e: time) -> bool:
+        return (s <= at < e) if s < e else (at >= s or at < e)  # 자정 넘김
+
+    for days, s, e in breaks:
+        if weekday in days and inside(s, e):
+            return "fail", f"{at.strftime('%H:%M')} 은 브레이크타임({s.strftime('%H:%M')}~{e.strftime('%H:%M')})"
     for s, e in applicable:
-        inside = (s <= at < e) if s < e else (at >= s or at < e)  # 자정 넘김
-        if inside:
+        if inside(s, e):
             return "pass", f"{s.strftime('%H:%M')}~{e.strftime('%H:%M')} 영업"
     ranges = ", ".join(f"{s.strftime('%H:%M')}~{e.strftime('%H:%M')}" for s, e in applicable)
     return "fail", f"{at.strftime('%H:%M')} 은 영업시간({ranges}) 밖"
 
 
 def closed_on(holiday_text: str, day: date) -> Result:
+    """휴무일 원문으로 방문일 휴무 여부. 공휴일 해당 여부는 판단하지 않는다."""
     text = holiday_text.replace(" ", "")
-    if "연중무휴" in text or "없음" in text:
+    if "연중무휴" in text or text in ("없음", "무휴"):
         return "pass"
     wd = day.weekday()
     if f"{WEEKDAY_NAMES[wd]}요일" in text or (wd >= 5 and "주말" in text) or (wd < 5 and "평일" in text):
         return "fail"
+    if re.search(r"[월화수목금토일]요일|주말|평일", text):
+        return "pass"  # 다른 요일만 휴무
     return "unknown"
 
 
 # ---------------------------------------------------------------- 평가
+MIN_MEAL_PRICE = 3000  # 이보다 싼 메뉴는 식사 메뉴로 보지 않음 (곁들임·데이터 오류 방지, 정책값)
+SIDE_MENU = re.compile(r"추가|사리|공기밥|곱빼기|토핑|소스|음료|사이다|콜라|주류|소주|맥주|막걸리|와인|라떼|아메리카노|커피|에이드|주스|포장|세트\s*변경")
+
+
+def is_meal_menu(menu: dict[str, Any], *, ignore_price: bool = False) -> bool:
+    name = menu.get("name") or ""
+    if SIDE_MENU.search(name):
+        return False
+    return ignore_price or (menu.get("price_krw") or 0) >= MIN_MEAL_PRICE
+
+
+
 def reference_time(conditions: Conditions) -> tuple[time | None, str]:
     if conditions.base.meal_time:
         return conditions.base.meal_time, "요청한 식사 시각"
@@ -144,13 +173,13 @@ def evaluate_restaurant(
 
     # 1) 예산 (제약)
     if budget is not None:
-        priced = [m for m in (menus or []) if m.get("price_krw")]
+        priced = [m for m in (menus or []) if m.get("price_krw") and is_meal_menu(m)]
         within = sorted((m for m in priced if m["price_krw"] <= budget), key=lambda m: m["price_krw"])
         if within:
             matched = within
             checks.append(Check("예산", "pass", f"{budget:,}원 이하 메뉴 {len(within)}개 (최저 {within[0]['price_krw']:,}원)",
                                 "레드테이블 메뉴정보 가격", True))
-        elif priced and len(priced) == len(menus or []):
+        elif priced and len(priced) == len([m for m in (menus or []) if is_meal_menu(m, ignore_price=True)]):
             low = min(m["price_krw"] for m in priced)
             checks.append(Check("예산", "fail", f"최저가 {low:,}원 > 예산 {budget:,}원", "레드테이블 메뉴정보 가격", True))
         else:
@@ -270,7 +299,16 @@ def evaluate(data: ExecutionData, conditions: Conditions, today: date,
         key = cand_key(cand)
         evaluated.append(evaluate_restaurant(cand, data.details.get(key), data.detail_errors.get(key), conditions,
                                              data.weather, visit, wpolicy))
-    satisfied = sorted((e for e in evaluated if e.status == "satisfied"), key=lambda e: -e.score)
+    ranked = sorted((e for e in evaluated if e.status == "satisfied"), key=lambda e: -e.score)
+    by_key = {cand_key(c): c for c in data.candidates}
+    satisfied, seen_places = [], set()
+    for e in ranked:
+        c = by_key[e.key]
+        place = (re.sub(r"\s|\(.*?\)", "", e.name), round(c.get("latitude") or 0, 4), round(c.get("longitude") or 0, 4))
+        if place in seen_places:
+            continue  # 원본에 같은 매장이 다른 ID 로 중복 등록된 경우 (ID 는 연결하지 않고 목록에서만 생략)
+        seen_places.add(place)
+        satisfied.append(e)
     excluded = [e for e in evaluated if e.status == "excluded"]
 
     criteria = []

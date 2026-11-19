@@ -29,7 +29,7 @@ def test_open_at(text, wd, at, expected):
 
 
 @pytest.mark.parametrize("text, day, expected", [
-    ("일요일", SUN, "fail"), ("일요일", THU, "unknown"), ("연중무휴", SUN, "pass"), ("주말, 공휴일", SUN, "fail"),
+    ("일요일", SUN, "fail"), ("일요일", THU, "pass"), ("연중무휴", SUN, "pass"), ("주말, 공휴일", SUN, "fail"),
 ])
 def test_closed_on(text, day, expected):
     assert closed_on(text, day) == expected
@@ -135,3 +135,38 @@ def test_agent_judge_with_budget(make_settings):
     # 카페는 충족한 식당만 찾음
     cafe_targets = {(c["args"]["latitude"]) for c in result["tool_calls"] if c["tool"] == "search_nearby_cafes"}
     assert len(cafe_targets) == 2
+
+
+@pytest.mark.parametrize("text, wd, at, expected", [
+    ("평일 10:30~22:00, 공휴일 11:00~20:30", 6, time(12), "unknown"),  # 공휴일 구간을 매일로 해석하지 않음
+    ("매일 11:00~22:00, 브레이크타임 15:00~17:00", 3, time(16), "fail"),
+    ("매일 11:00~22:00, 브레이크타임 15:00~17:00", 3, time(12), "pass"),
+])
+def test_open_at_holiday_and_break_segments(text, wd, at, expected):
+    assert open_at(text, wd, at)[0] == expected
+
+
+def test_closed_on_other_weekday_passes():
+    assert closed_on("일요일", THU) == "pass" and closed_on("일요일, 공휴일", THU) == "pass"
+    assert closed_on("공휴일", THU) == "unknown"
+
+
+def test_side_dishes_do_not_satisfy_budget():
+    c = cond("강남역 1만원 이하 점심")
+    d = detail([{"name": "공기밥", "price_krw": 1000}, {"name": "곱빼기 추가", "price_krw": 1500},
+                {"name": "연유라떼", "price_krw": 1}, {"name": "짬뽕", "price_krw": 11000}])
+    e = evaluate_restaurant(CAND, d, None, c, None, THU)
+    assert e.status == "excluded" and "최저가 11,000원" in e.excluded_reason
+    d2 = detail([{"name": "공기밥", "price_krw": 1000}, {"name": "짜장면", "price_krw": 8000}])
+    assert [m["name"] for m in evaluate_restaurant(CAND, d2, None, c, None, THU).matched_menus] == ["짜장면"]
+
+
+def test_same_place_registered_twice_recommended_once(make_settings):
+    from tests.unit.agent_fixtures import GANGNAM, MENUS, OPRT_ROWS, YEOKSAM, make_session as ms
+    from tests.unit.test_f3002_restaurant_candidates import rt_row as rr
+
+    rows = [GANGNAM[0], rr(99, "김치찌개집", 37.4981, 127.0277)] + GANGNAM[1:] + YEOKSAM
+    menus = [{"MENU_ID": i, "MENU_NM": n, "MENU_PRICE": p, "RSTR_ID": r} for i, (r, n, p) in enumerate(MENUS + [(99, "김치찌개", 9000)], 1)]
+    agent = MainAgent(make_registry(make_settings, ms(rt_rows=rows, menus=menus)), today_fn=lambda: TODAY)
+    names = [e.name for e in agent.run("강남역 1만원 이하 12시 점심")["evaluation"].satisfied]
+    assert names.count("김치찌개집") == 1
