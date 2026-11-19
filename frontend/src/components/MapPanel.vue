@@ -30,7 +30,8 @@ const pins = computed<Pin[]>(() => {
     if (c && c.latitude != null && c.longitude != null) add('cafe', i, c.name, c.latitude, c.longitude)
   })
   areas.forEach((a) => { const s = STATIONS[a]; if (s) add('station', -1, a, s[0], s[1]) })
-  return [...byKey.values()]
+  const order = { station: 0, meal: 1, cafe: 2 }
+  return [...byKey.values()].sort((a, b) => order[a.kind] - order[b.kind])
 })
 const isOn = (p: Pin) => p.courses.includes(props.selected)
 const courseLabel = (p: Pin) => p.courses.map((c) => c + 1).join('·')
@@ -120,7 +121,7 @@ const H = 360
 const PAD = 36
 const projected = computed(() => {
   const ps = pins.value
-  if (!ps.length) return { pts: [] as (Pin & { x: number; y: number })[], project: (_: [number, number]) => [0, 0] as [number, number] }
+  if (!ps.length) return { pts: [] as (Pin & { x: number; y: number; attached: boolean })[], project: (_: [number, number]) => [0, 0] as [number, number] }
   const lats = ps.map((p) => p.lat)
   const lngs = ps.map((p) => p.lng)
   const kx = Math.cos((lats.reduce((a, b) => a + b, 0) / lats.length) * Math.PI / 180)
@@ -130,16 +131,28 @@ const projected = computed(() => {
   const scale = Math.min((W - PAD * 2) / span, (H - PAD * 2) / span)
   const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2
   const project = ([lat, lng]: [number, number]): [number, number] => [W / 2 + (lng * kx - cx) * scale, H / 2 - (lat - cy) * scale]
-  return { pts: ps.map((p) => { const [x, y] = project([p.lat, p.lng]); return { ...p, x, y } }), project }
+  const pts = ps.map((p) => { const [x, y] = project([p.lat, p.lng]); return { ...p, x, y, attached: false } })
+  // 식당 핀과 화면상 거의 겹치는 카페 핀은 식당 핀 오른쪽 위에 붙은 배지로 그린다 (같은 위치임을 표시)
+  for (const c of pts.filter((p) => p.kind === 'cafe')) {
+    const m = pts.find((p) => p.kind === 'meal' && Math.hypot(p.x - c.x, p.y - c.y) < 20)
+    if (m) { c.x = m.x + 16; c.y = m.y - 16; c.attached = true }
+  }
+  return { pts, project }
 })
 const fallbackLine = computed(() => {
   if (!link.value) return null
   const [x1, y1] = projected.value.project(link.value.from)
   const [x2, y2] = projected.value.project(link.value.to)
+  const len = Math.hypot(x2 - x1, y2 - y1)
+  const clampX = (x: number) => Math.min(W - 60, Math.max(60, x))
+  const clampY = (y: number) => Math.min(H - 12, Math.max(18, y))
+  if (len < 24) {
+    // 같은 건물 수준으로 가까우면 선을 그리지 않고 식당 핀 아래에 거리만 적는다
+    return { short: true, x1, y1, x2, y2, mx: clampX(x1), my: clampY(y1 + 34) }
+  }
   // 라벨은 선의 중점에서 수직 방향으로 비켜 핀을 가리지 않게 둔다
-  const len = Math.hypot(x2 - x1, y2 - y1) || 1
   const nx = -(y2 - y1) / len, ny = (x2 - x1) / len
-  return { x1, y1, x2, y2, mx: (x1 + x2) / 2 + nx * 26, my: (y1 + y2) / 2 + ny * 26 + 4 }
+  return { short: false, x1, y1, x2, y2, mx: clampX((x1 + x2) / 2 + nx * 26), my: clampY((y1 + y2) / 2 + ny * 26 + 4) }
 })
 </script>
 
@@ -155,15 +168,15 @@ const fallbackLine = computed(() => {
       </defs>
       <rect :width="W" :height="H" fill="url(#grid)" />
       <g v-if="fallbackLine" class="link">
-        <line :x1="fallbackLine.x1" :y1="fallbackLine.y1" :x2="fallbackLine.x2" :y2="fallbackLine.y2" />
-        <text :x="fallbackLine.mx" :y="fallbackLine.my" text-anchor="middle">직선 {{ link?.meters }}m</text>
+        <line v-if="!fallbackLine.short" :x1="fallbackLine.x1" :y1="fallbackLine.y1" :x2="fallbackLine.x2" :y2="fallbackLine.y2" />
+        <text :x="fallbackLine.mx" :y="fallbackLine.my" text-anchor="middle">{{ fallbackLine.short ? `같은 위치 · 직선 ${link?.meters}m` : `직선 ${link?.meters}m` }}</text>
       </g>
-      <g v-for="p in projected.pts" :key="p.kind + p.lat + p.lng" class="svg-pin" :class="[p.kind, { on: isOn(p) }]"
+      <g v-for="p in projected.pts" :key="p.kind + p.lat + p.lng" class="svg-pin" :class="[p.kind, { on: isOn(p), attached: p.attached }]"
          :transform="`translate(${p.x} ${p.y})`" :role="p.courses.length ? 'button' : undefined"
          :aria-label="p.courses.length ? `${courseLabel(p)}번 코스 ${p.kind === 'meal' ? '식당' : '카페'} ${p.names.join(', ')}` : p.names[0]"
          @click="pick(p)">
         <title>{{ p.names.join(', ') }}</title>
-        <circle :r="p.kind === 'station' ? 7 : p.kind === 'meal' ? (p.courses.length > 1 ? 19 : 15) : 11" />
+        <circle :r="p.kind === 'station' ? 7 : p.kind === 'meal' ? (p.courses.length > 1 ? 19 : 15) : p.attached ? 9 : 11" />
         <text v-if="p.kind === 'meal'" text-anchor="middle" dy="5">{{ courseLabel(p) }}</text>
         <text v-else-if="p.kind === 'cafe'" text-anchor="middle" dy="4" class="glyph">☕</text>
         <text v-else text-anchor="middle" dy="-12" class="station-label">{{ p.names[0] }}</text>

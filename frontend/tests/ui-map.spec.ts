@@ -80,6 +80,16 @@ it('같은 위치의 식당·카페는 하나의 핀으로 묶고 위치를 옮�
   expect(w.emitted('select')?.[0]).toEqual([0]) // 겹친 핀을 누르면 다른 코스로 전환
 })
 
+it('식당과 카페가 같은 건물이면 선 대신 같은 위치로 표기하고 카페를 배지로 붙인다', async () => {
+  const r = recs[0]!
+  const same = [{ ...r, cafes: [{ ...r.cafes[0]!, latitude: r.latitude, longitude: r.longitude, distance_m: 0 }] }]
+  const w = mount(MapPanel, { props: { recommendations: same, selected: 0 } })
+  await flushPromises()
+  expect(w.find('.link line').exists()).toBe(false)
+  expect(w.find('.link text').text()).toBe('같은 위치 · 직선 0m')
+  expect(w.find('.svg-pin.cafe').classes()).toContain('attached')
+})
+
 it('직선거리 계산', () => {
   expect(Math.round(haversineM([37.497952, 127.027619], [37.500622, 127.036456]))).toBeGreaterThan(800)
 })
