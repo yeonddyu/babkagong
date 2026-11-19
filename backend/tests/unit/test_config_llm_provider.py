@@ -3,13 +3,15 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from app.core.config import load_settings
+from app.core.config import DEFAULT_GMS_BASE_URL, DEFAULT_LLM_MODEL, load_settings
 from app.core.llm_provider import create_llm, llm_status
+
+NAMES = ("REDTABLE_API_KEY", "SEOUL_FOOD_API_TOKEN", "SEOUL_OPENAPI_KEY", "SEOUL_OPEN_API_KEY", "OPENAI_API_KEY",
+         "GMS_API_KEY", "GMS_BASE_URL", "GMS_MODEL", "AI_PROVIDER", "KMA_API_KEY", "KAKAO_REST_API_KEY")
 
 
 def _clear(monkeypatch):
-    for name in ("REDTABLE_API_KEY", "SEOUL_FOOD_API_TOKEN", "SEOUL_OPENAPI_KEY", "SEOUL_OPEN_API_KEY", "OPENAI_API_KEY",
-                 "GMS_API_KEY", "AI_PROVIDER", "KMA_API_KEY", "KAKAO_REST_API_KEY"):
+    for name in NAMES:
         monkeypatch.delenv(name, raising=False)
 
 
@@ -29,18 +31,44 @@ def test_key_status_hides_values(monkeypatch):
     assert "secret-gms" not in str(status)
 
 
-def test_gms_provider_not_used(monkeypatch):
+def test_gms_is_default_provider(monkeypatch):
     _clear(monkeypatch)
-    monkeypatch.setenv("AI_PROVIDER", "gms")
-    monkeypatch.setenv("GMS_API_KEY", "x")
+    monkeypatch.setenv("GMS_API_KEY", "gms-key")
     s = load_settings(load_env_file=False)
     st = llm_status(s)
-    assert st.provider == "openai" and st.available is False  # OpenAI 키 없음 → GMS 로 대체하지 않음
-    assert create_llm(s) is None
+    assert (st.available, st.provider, st.model) == (True, "gms", DEFAULT_LLM_MODEL)
+    llm = create_llm(s)
+    assert llm.model_name == DEFAULT_LLM_MODEL and str(llm.openai_api_base).rstrip("/") == DEFAULT_GMS_BASE_URL
+    assert llm.openai_api_key.get_secret_value() == "gms-key"
 
 
-def test_openai_llm_created_when_key_present(monkeypatch):
+def test_gms_model_placeholder_ignored(monkeypatch):
     _clear(monkeypatch)
+    monkeypatch.setenv("GMS_MODEL", "SSAFY에서_사용_허가된_모델_ID")
+    assert load_settings(load_env_file=False).gms_model is None
+    monkeypatch.setenv("GMS_MODEL", "gpt-4.1-mini")
+    assert load_settings(load_env_file=False).gms_model == "gpt-4.1-mini"
+
+
+def test_gms_custom_base_url_and_model(monkeypatch):
+    _clear(monkeypatch)
+    monkeypatch.setenv("GMS_API_KEY", "k")
+    monkeypatch.setenv("GMS_BASE_URL", "https://example.test/v1")
+    monkeypatch.setenv("GMS_MODEL", "gpt-4.1-mini")
+    llm = create_llm(load_settings(load_env_file=False))
+    assert llm.model_name == "gpt-4.1-mini" and str(llm.openai_api_base).startswith("https://example.test/v1")
+
+
+def test_no_gms_key_means_rule_based(monkeypatch):
+    _clear(monkeypatch)
+    s = load_settings(load_env_file=False)
+    assert llm_status(s).available is False and create_llm(s) is None
+    assert "GMS_API_KEY" in llm_status(s).reason
+
+
+def test_openai_provider_when_selected(monkeypatch):
+    _clear(monkeypatch)
+    monkeypatch.setenv("AI_PROVIDER", "openai")
     s = replace(load_settings(load_env_file=False), openai_api_key="sk-test")
     llm = create_llm(s)
-    assert llm is not None and llm.model_name == s.openai_model
+    assert llm_status(s).provider == "openai" and llm.model_name == s.openai_model

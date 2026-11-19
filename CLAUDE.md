@@ -7,7 +7,7 @@
 
 ## 기술 스택
 - Backend: Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2 + SQLite, requests
-- Agent: LangGraph 1.2.10, LangChain 1.3.14, langchain-openai 1.4.3 (OpenAI). SSAFY GMS 는 키만 등록, 연동하지 않음
+- Agent: LangGraph 1.2.10, LangChain 1.3.14, langchain-openai 1.4.3. LLM 은 SSAFY GMS(OpenAI 호환, `GMS_API_KEY`·`GMS_BASE_URL`·`GMS_MODEL`) 기본, `AI_PROVIDER=openai` 로 OpenAI 직접 호출 가능
 - Frontend: Vue 3 + TypeScript + Vite
 - Test: pytest (backend), vue-tsc + vite build + vitest (frontend)
 

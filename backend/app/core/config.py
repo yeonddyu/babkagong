@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -20,7 +21,7 @@ ENV_SEOUL_KEY = "SEOUL_OPENAPI_KEY"  # 서울 열린데이터광장 인증키
 ENV_KAKAO_KEY = "KAKAO_REST_API_KEY"  # 카카오 로컬 REST API 키
 ENV_KMA_KEY = "KMA_API_KEY"  # 기상청 단기예보 (공공데이터포털 serviceKey, 인코딩된 값)
 ENV_OPENAI_KEY = "OPENAI_API_KEY"
-ENV_GMS_KEY = "GMS_API_KEY"  # SSAFY GMS — 현재는 존재 여부만 확인, 모델 연동 안 함
+ENV_GMS_KEY = "GMS_API_KEY"  # SSAFY GMS (OpenAI 호환 프록시) — 메인 Agent LLM 기본 제공자
 
 ALIASES: dict[str, tuple[str, ...]] = {
     ENV_REDTABLE_KEY: ("SEOUL_FOOD_API_TOKEN",),
@@ -40,7 +41,9 @@ class Settings:
     openai_api_key: str | None = None
     openai_model: str = "gpt-4o-mini"
     gms_api_key: str | None = None
-    ai_provider: str = "openai"
+    gms_base_url: str | None = None
+    gms_model: str | None = None
+    ai_provider: str = "gms"
     max_replans: int = 3
     database_url: str = ""
 
@@ -71,6 +74,17 @@ def _get(name: str) -> str | None:
     return None
 
 
+DEFAULT_GMS_BASE_URL = "https://gms.ssafy.io/gmsapi/api.openai.com/v1"
+DEFAULT_LLM_MODEL = "gpt-4o-mini"
+_MODEL_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/-]*")
+
+
+def _model_id(value: str | None) -> str | None:
+    """모델 ID 형식이 아니면(예: '.env.example' 안내 문구 그대로) 미설정으로 본다."""
+    value = _clean(value)
+    return value if value and _MODEL_ID.fullmatch(value) else None
+
+
 def load_settings(*, load_env_file: bool = True) -> Settings:
     if load_env_file:
         load_dotenv(REPO_ROOT / ".env", override=False)
@@ -88,8 +102,10 @@ def load_settings(*, load_env_file: bool = True) -> Settings:
         openai_api_key=_get(ENV_OPENAI_KEY),
         openai_model=os.getenv("OPENAI_MODEL") or "gpt-4o-mini",
         gms_api_key=_get(ENV_GMS_KEY),
-        # GMS 는 아직 연동하지 않는다. AI_PROVIDER 값과 무관하게 llm_provider 가 OpenAI 만 반환한다.
-        ai_provider=(os.getenv("AI_PROVIDER") or "openai").strip().lower(),
+        gms_base_url=_clean(os.getenv("GMS_BASE_URL")) or DEFAULT_GMS_BASE_URL,
+        gms_model=_model_id(os.getenv("GMS_MODEL")),
+        # 기본 LLM 제공자는 SSAFY GMS. AI_PROVIDER=openai 로 바꾸면 OpenAI 직접 호출.
+        ai_provider=(os.getenv("AI_PROVIDER") or "gms").strip().lower(),
         max_replans=int(os.getenv("MAX_REPLANS") or "3"),
         database_url=db_url,
     )
