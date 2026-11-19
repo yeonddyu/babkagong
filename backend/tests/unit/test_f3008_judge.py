@@ -1,0 +1,137 @@
+"""F3008 제약 적합성 판단 - 단위 테스트."""
+from __future__ import annotations
+
+from datetime import date, time
+
+import pytest
+
+from app.agent.analysis import rule_analyze
+from app.agent.graph import MainAgent
+from app.agent.judge import closed_on, evaluate_restaurant, open_at
+from tests.unit.agent_fixtures import TODAY, kma_handler, make_registry, make_session
+
+THU = TODAY  # 2026-11-19 목요일
+SUN = date(2026, 11, 22)
+
+
+@pytest.mark.parametrize("text, wd, at, expected", [
+    ("매일 11:00~21:00", 3, time(12), "pass"),
+    ("매일 11:00~21:00", 3, time(22), "fail"),
+    ("매일 11:30~15:00, 매일 17:30~21:30", 3, time(16), "fail"),
+    ("평일 11:30~22:00, 주말 12:00~21:00", 5, time(11, 45), "fail"),
+    ("평일 17:00~07:00", 3, time(2), "pass"),  # 자정 넘김
+    ("평일 11:30~22:00", 6, time(12), "unknown"),  # 일요일 정보 없음 → 추정하지 않음
+    ("월~금 09:00~18:00", 4, time(12), "pass"),
+    ("전화 문의", 3, time(12), "unknown"),
+])
+def test_open_at(text, wd, at, expected):
+    assert open_at(text, wd, at)[0] == expected
+
+
+@pytest.mark.parametrize("text, day, expected", [
+    ("일요일", SUN, "fail"), ("일요일", THU, "unknown"), ("연중무휴", SUN, "pass"), ("주말, 공휴일", SUN, "fail"),
+])
+def test_closed_on(text, day, expected):
+    assert closed_on(text, day) == expected
+
+
+def cond(msg):
+    return rule_analyze(msg, TODAY).conditions
+
+
+CAND = {"name": "테스트", "source": "seoul_tourism_redtable", "source_id": "1", "distance_m": 100}
+
+
+def detail(menus=None, hours=None, holidays=None, available=True):
+    return {"detail_available": available, "menus": menus, "operation": {"business_hours": hours, "holidays": holidays} if hours or holidays else None}
+
+
+def test_budget_pass_fail_unknown():
+    c = cond("강남역 1만원 이하 점심")
+    ok = evaluate_restaurant(CAND, detail([{"name": "김치찌개", "price_krw": 9000}, {"name": "제육", "price_krw": 11000}]), None, c, None, THU)
+    assert ok.status == "satisfied" and [m["name"] for m in ok.matched_menus] == ["김치찌개"]
+    over = evaluate_restaurant(CAND, detail([{"name": "초밥", "price_krw": 22000}]), None, c, None, THU)
+    assert over.status == "excluded" and "최저가 22,000원 > 예산 10,000원" in over.excluded_reason
+    unknown = evaluate_restaurant(CAND, detail([]), None, c, None, THU)
+    assert unknown.status == "excluded" and "판단 불가" in unknown.excluded_reason
+    assert "매장에서 확인" in unknown.excluded_reason  # 역산 기준 제시, 가격 추정 안 함
+    partial = evaluate_restaurant(CAND, detail([{"name": "A", "price_krw": None}, {"name": "B", "price_krw": 20000}]), None, c, None, THU)
+    assert partial.status == "excluded" and "판단 불가" in partial.excluded_reason  # 가격 없는 메뉴를 예산 이하로 가정하지 않음
+
+
+def test_hours_fail_excludes_unknown_warns():
+    c = cond("강남역 12시 점심")
+    closed = evaluate_restaurant(CAND, detail([], "매일 17:00~23:00"), None, c, None, THU)
+    assert closed.status == "excluded" and "영업시간" in closed.excluded_reason
+    no_info = evaluate_restaurant(CAND, detail([]), None, c, None, THU)
+    assert no_info.status == "satisfied" and any("영업시간 미확인" in w for w in no_info.warnings)
+    assert "미확인 항목 -5" in no_info.score_reasons
+
+
+def test_period_reference_time_is_labelled_assumption():
+    e = evaluate_restaurant(CAND, detail([], "매일 11:00~21:00"), None, cond("강남역 점심"), None, THU)
+    hours = next(ch for ch in e.checks if ch.criterion == "영업시간")
+    assert hours.result == "pass" and "가정" in hours.basis
+
+
+def test_holiday_and_distance_constraints():
+    e = evaluate_restaurant(CAND, detail([], "매일 08:00~20:00", "일요일"), None, cond("일요일 강남역 점심"), None, SUN)
+    assert e.status == "excluded" and "휴무일" in e.excluded_reason
+    far = dict(CAND, distance_m=450)
+    e2 = evaluate_restaurant(far, detail([]), None, cond("강남역 300m 이내 점심"), None, THU)
+    assert e2.status == "excluded" and "450m" in e2.excluded_reason
+    e3 = evaluate_restaurant(far, detail([]), None, cond("강남역 도보 5분 이내 점심"), None, THU)
+    assert e3.status == "excluded" and "도보" in e3.excluded_reason  # 450*1.3/67 → 9분
+
+
+def test_end_by_reverse_calculation():
+    e = evaluate_restaurant(CAND, detail([]), None, cond("강남역 1시 점심 먹고 3시까지 카공"), None, THU)
+    end = next(ch for ch in e.checks if ch.criterion == "종료 시각")
+    assert "늦어도" in end.value and end.result == "fail"  # 13:00 시작 > 역산 기준
+    assert e.status == "excluded"
+
+
+def test_license_candidate_without_details_with_budget_excluded():
+    lic = dict(CAND, source="gangnam_general_restaurant_license")
+    d = {"detail_available": False, "menus": None, "operation": None, "detail_unavailable": {"message": "메뉴 미제공"}}
+    e = evaluate_restaurant(lic, d, None, cond("강남역 1만원 이하"), None, THU)
+    assert e.status == "excluded" and e.matched_menus == []
+
+
+def test_weather_scoring():
+    c = cond("강남역 점심")
+    warm = detail([{"name": "김치찌개", "price_krw": 9000}])
+    neutral = detail([{"name": "샐러드", "price_krw": 9000}])
+    cold_w = {"temperature_c": 2.0, "precipitation_probability": 0, "precipitation_type": "없음"}
+    a = evaluate_restaurant(CAND, warm, None, c, cold_w, THU)
+    b = evaluate_restaurant(CAND, neutral, None, c, cold_w, THU)
+    assert a.score - b.score == 10 and any("따뜻한 메뉴" in r for r in a.score_reasons)
+    hot_w = {"temperature_c": 30.0, "precipitation_probability": 0, "precipitation_type": "없음"}
+    noodle = evaluate_restaurant(CAND, detail([{"name": "물냉면", "price_krw": 11000}]), None, c, hot_w, THU)
+    assert any("차가운 메뉴" in r for r in noodle.score_reasons)
+    rain = {"temperature_c": 12.0, "precipitation_probability": 80, "precipitation_type": "비"}
+    near = evaluate_restaurant(dict(CAND, distance_m=100), neutral, None, c, rain, THU)
+    far = evaluate_restaurant(dict(CAND, distance_m=500), neutral, None, c, rain, THU)
+    dry_far = evaluate_restaurant(dict(CAND, distance_m=500), neutral, None, c, None, THU)
+    assert near.score > far.score and far.score < dry_far.score  # 비 오면 거리 감점 가중
+
+
+def test_weather_does_not_override_user_preference(make_settings):
+    session = make_session(kma=kma_handler(tmp="1"))
+    agent = MainAgent(make_registry(make_settings, session), today_fn=lambda: TODAY)
+    result = agent.run("강남역 일식 점심 추천")
+    names = [e.name for e in result["evaluation"].satisfied]
+    assert names and all(n in ("스시하우스", "라멘가게") for n in names)  # 추워도 한식으로 바꾸지 않음
+
+
+def test_agent_judge_with_budget(make_settings):
+    agent = MainAgent(make_registry(make_settings, make_session()), today_fn=lambda: TODAY)
+    result = agent.run("강남역에서 1만원 이하로 12시 점심")
+    ev = result["evaluation"]
+    assert [e.name for e in ev.satisfied] == ["김치찌개집", "일요일휴무 백반"]
+    reasons = {e.name: e.excluded_reason for e in ev.excluded}
+    assert "최저가" in reasons["스시하우스"] and "판단 불가" in reasons["가격미상 국밥"]
+    assert any("예산" in c for c in ev.criteria)
+    # 카페는 충족한 식당만 찾음
+    cafe_targets = {(c["args"]["latitude"]) for c in result["tool_calls"] if c["tool"] == "search_nearby_cafes"}
+    assert len(cafe_targets) == 2
