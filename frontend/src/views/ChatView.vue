@@ -3,7 +3,9 @@ import { nextTick, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { api, ApiError } from '../api'
 import RecommendationCard from '../components/RecommendationCard.vue'
-import type { Area, ChatResponse } from '../types'
+import RunTimeline from '../components/RunTimeline.vue'
+import StatusBanner from '../components/StatusBanner.vue'
+import type { Area, ChatResponse, RunEvent } from '../types'
 
 interface Turn {
   role: 'user' | 'assistant'
@@ -27,6 +29,7 @@ const sessionId = ref<string | null>(null)
 const busy = ref(false)
 const savingIndex = ref<number | null>(null)
 const listEl = ref<HTMLElement | null>(null)
+const liveEvents = ref<RunEvent[]>([])
 
 async function send(text?: string) {
   const message = (text ?? input.value).trim()
@@ -34,9 +37,13 @@ async function send(text?: string) {
   input.value = ''
   turns.value.push({ role: 'user', text: message })
   busy.value = true
+  liveEvents.value = []
   scroll()
   try {
-    const result = await api.chat(message, sessionId.value, area.value)
+    const result = await api.chatStream(message, sessionId.value, area.value, (e) => {
+      liveEvents.value.push(e)
+      scroll()
+    })
     sessionId.value = result.session_id
     turns.value.push({ role: 'assistant', text: result.message, result })
   } catch (e) {
@@ -73,9 +80,9 @@ async function scroll() {
         <button v-for="a in AREAS" :key="a" class="area-btn" :class="{ on: area === a }" role="radio"
                 :aria-checked="area === a" @click="area = a">{{ a }}</button>
       </div>
-      <slot name="status" />
       <button class="btn" @click="newConversation">새 대화</button>
     </div>
+    <StatusBanner />
 
     <div ref="listEl" class="turns">
       <div v-if="!turns.length" class="welcome card">
@@ -111,11 +118,11 @@ async function scroll() {
               <ul v-if="t.result.weather_policy.length"><li v-for="w in t.result.weather_policy" :key="w">🌤 {{ w }}</li></ul>
               <ul class="excluded"><li v-for="x in t.result.excluded" :key="x.source + x.source_id"><b>{{ x.name }}</b> — {{ x.reason }}</li></ul>
             </details>
-            <slot name="run" :result="t.result" />
+            <RunTimeline :events="t.result.events" :elapsed-ms="t.result.elapsed_ms" />
           </template>
         </div>
       </template>
-      <slot name="busy" :busy="busy" />
+      <RunTimeline v-if="busy" :events="liveEvents" live />
     </div>
 
     <form class="composer card" @submit.prevent="send()">

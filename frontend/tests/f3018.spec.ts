@@ -35,6 +35,20 @@ function mockFetch(handler: (url: string, init?: RequestInit) => unknown) {
   return fn
 }
 
+// /api/chat/stream 은 SSE 본문, /api/health 는 JSON 으로 응답하는 가짜 fetch
+function mockChat(result: () => unknown, progress: unknown[] = []) {
+  const fn = vi.fn(async (url: string, _init?: RequestInit) => {
+    if (url === '/api/health') {
+      return { ok: true, status: 200, json: async () => ({ status: 'ok', api_keys: {}, llm: { available: true }, tools: [], max_replans: 3 }) } as Response
+    }
+    const sse = progress.map((p) => `event: progress\ndata: ${JSON.stringify(p)}\n\n`).join('') +
+      `event: result\ndata: ${JSON.stringify(result())}\n\n`
+    return new Response(sse, { status: 200, headers: { 'Content-Type': 'text/event-stream' } })
+  })
+  vi.stubGlobal('fetch', fn)
+  return fn
+}
+
 function makeRouter() {
   return createRouter({ history: createMemoryHistory(), routes: [
     { path: '/', component: ChatView }, { path: '/plans', component: PlansView }, { path: '/plans/:id', component: PlansView }] })
@@ -63,8 +77,8 @@ describe('RecommendationCard', () => {
 })
 
 describe('ChatView', () => {
-  it('선택한 지역과 메시지로 /api/chat 을 호출하고 추천을 표시한다', async () => {
-    const fetch = mockFetch(() => ({
+  it('선택한 지역과 메시지로 대화 API 를 호출하고 추천을 표시한다', async () => {
+    const fetch = mockChat(() => ({
       session_id: 's1', run_id: 'r1', intent: 'recommend', intent_reason: '', decided_by: 'rule', message: '추천 결과예요',
       message_by: 'template', conditions: {}, clarify: false, weather: null, weather_policy: [], recommendations: [rec],
       excluded: [{ name: '스시', source: 's', source_id: '2', reason: '예산 조건 불충족' }], criteria: ['예산: 1만원'],
@@ -77,8 +91,8 @@ describe('ChatView', () => {
     await w.find('input').setValue('점심 추천')
     await w.find('form').trigger('submit')
     await flushPromises()
-    const [url, init] = fetch.mock.calls[0]!
-    expect(url).toBe('/api/chat')
+    const [url, init] = fetch.mock.calls.find(([u]) => u !== '/api/health')!
+    expect(url).toBe('/api/chat/stream')
     expect(JSON.parse(init!.body as string)).toEqual({ message: '점심 추천', session_id: null, area: '역삼역' })
     expect(w.text()).toContain('추천 결과예요')
     expect(w.text()).toContain('김치찌개집')

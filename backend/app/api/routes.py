@@ -1,11 +1,16 @@
 """FastAPI 라우터: 대화(/api/chat), 계획(/api/plans), 실행 로그(/api/logs), 상태(/api/health)."""
 from __future__ import annotations
 
+import json
 import logging
+import queue
+import threading
 import time
+import uuid
 from datetime import date
 
 from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
 
 from app.api.schemas import (
@@ -55,6 +60,53 @@ def chat(req: ChatRequest, request: Request):
         elapsed_ms=int((time.perf_counter() - started) * 1000),
         **{k: body[k] for k in ChatResponse.model_fields if k in body},
     )
+
+
+def _sse(event: str, data: dict) -> str:
+    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False, default=str)}\n\n"
+
+
+@router.post("/chat/stream", tags=["chat"], summary="대화 요청 → 실행 이벤트를 실시간(SSE)으로 보내고 마지막에 결과 전송",
+             response_class=StreamingResponse,
+             responses={200: {"content": {"text/event-stream": {}},
+                              "description": "event: progress (실행 이벤트) … event: result (ChatResponse) | event: error"}})
+def chat_stream(req: ChatRequest, request: Request):
+    """F3019: 처리 중 단계·Tool 호출을 화면에 실시간 표시하기 위한 스트림. 결과 형식은 /api/chat 과 같다."""
+    d = _deps(request)
+    session_id = req.session_id or uuid.uuid4().hex
+    q: queue.Queue = queue.Queue()
+
+    def on_event(event):
+        if event.session_id == session_id:
+            q.put(("progress", event.to_dict()))
+
+    def worker():
+        started = time.perf_counter()
+        unsubscribe = d.bus.subscribe(on_event)
+        try:
+            result = d.agent.run(req.message, session_id=session_id, area_hint=req.area)
+            body = result["response"]
+            resp = ChatResponse(session_id=result["session_id"], run_id=result["run_id"], events=result["events"],
+                                elapsed_ms=int((time.perf_counter() - started) * 1000),
+                                **{k: body[k] for k in ChatResponse.model_fields if k in body})
+            q.put(("result", resp.model_dump(mode="json")))
+        except Exception:  # noqa: BLE001
+            logger.exception("Agent 실행 실패 (stream)")
+            q.put(("error", {"code": "INTERNAL_ERROR", "message": "요청을 처리하는 중 문제가 발생했어요. 잠시 후 다시 시도해 주세요."}))
+        finally:
+            unsubscribe()
+            q.put(None)
+
+    threading.Thread(target=worker, daemon=True).start()
+
+    def stream():
+        while True:
+            item = q.get()
+            if item is None:
+                break
+            yield _sse(*item)
+
+    return StreamingResponse(stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})
 
 
 # ---------------------------------------------------------------- 계획

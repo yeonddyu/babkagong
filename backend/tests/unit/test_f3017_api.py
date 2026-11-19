@@ -20,7 +20,8 @@ def client(make_settings):
 
 def test_openapi_routes_are_separate(client):
     paths = client.get("/openapi.json").json()["paths"]
-    assert set(paths) == {"/api/health", "/api/chat", "/api/plans", "/api/plans/{plan_id}", "/api/logs", "/api/logs/{session_id}"}
+    assert set(paths) == {"/api/health", "/api/chat", "/api/chat/stream", "/api/plans", "/api/plans/{plan_id}", "/api/logs",
+                          "/api/logs/{session_id}"}
     assert set(paths["/api/logs/{session_id}"]) == {"get", "delete"}  # 로그 수정(PUT/PATCH) 없음
     assert set(paths["/api/plans/{plan_id}"]) == {"get", "put", "delete"}
     assert client.get("/docs").status_code == 200
