@@ -183,8 +183,25 @@ def _template_message(intent: str, body: dict[str, Any]) -> str:
 
 
 LLM_PROMPT = """아래 JSON 은 밥카공 Agent 가 외부 API 와 코드 계산으로 확정한 결과다.
-이 JSON 에 있는 사실만 사용해 한국어로 4~10줄 추천 메시지를 써라. 새 가격·영업시간·거리·편의시설을 만들지 말고,
-추천 순서와 제외 사유를 바꾸지 마라. '추정'·'미확인' 표시는 그대로 유지하라."""
+이 JSON 에 있는 사실만 사용해 한국어로 6~12줄 추천 메시지를 써라. 규칙:
+- 추천 식당을 순서대로 모두 쓰고, 각 식당마다 cafes 의 첫 번째 카페 이름과 식당에서의 직선거리를 함께 쓴다.
+- 가격·영업시간·거리·편의시설·분위기·맛 평가 등 JSON 에 없는 내용을 만들지 않는다. 추천 순서와 제외 사유를 바꾸지 않는다.
+- '추정'·'미확인' 표시는 유지하고, 마지막 줄에 "카페 영업시간·콘센트·와이파이·혼잡도는 확인되지 않았어요"를 쓴다.
+- notices 와 disclaimer 가 있으면 그대로 포함한다."""
+
+
+def _llm_message_ok(text: str, recommendations: list[dict[str, Any]], body: dict[str, Any]) -> bool:
+    """LLM 문장이 확정된 추천(식당·첫 카페)과 필수 안내를 담고 있는지 확인한다. 아니면 템플릿을 쓴다."""
+    for rec in recommendations:
+        if rec["name"].split("(")[0].strip() not in text:
+            return False
+        if rec["cafes"] and rec["cafes"][0]["name"].split("(")[0].strip() not in text:
+            return False
+    if "확인되지 않" not in text and "미확인" not in text:
+        return False
+    if body.get("disclaimer") and "전문가" not in text:
+        return False
+    return True
 
 
 def build_response(
@@ -256,9 +273,11 @@ def build_response(
             facts = {k: body[k] for k in ("weather", "recommendations", "excluded", "criteria", "notices", "disclaimer")}
             out = llm.invoke([("system", LLM_PROMPT), ("human", json.dumps(facts, ensure_ascii=False, default=str))])
             text = getattr(out, "content", None)
-            if isinstance(text, str) and text.strip():
+            if isinstance(text, str) and text.strip() and _llm_message_ok(text, recommendations, body):
                 body["message"] = text.strip()
                 body["message_by"] = "llm"
+            else:
+                logger.warning("LLM 문장에 확정된 추천·카페·필수 안내가 빠져 템플릿 사용")
         except Exception as exc:  # noqa: BLE001
             logger.warning("LLM 응답 생성 실패, 템플릿 사용: %s", type(exc).__name__)
     return body
