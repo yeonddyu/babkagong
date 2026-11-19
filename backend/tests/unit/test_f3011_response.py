@@ -109,14 +109,15 @@ def test_sample_menus_without_budget(make_settings):
 
 
 def test_summary_is_short_and_uses_confirmed_values(make_settings):
-    """대화창용 요약: 코드가 확정 값으로 만든 2줄, 1순위 식당·첫 카페만 (자세한 내용은 카드·지도)."""
+    """대화창용 요약: 코드가 확정 값으로 만든 4줄, 1순위 식당·첫 카페만 (자세한 내용은 카드·지도)."""
     body = run(make_settings, "강남역에서 1만원 이하로 12시 점심 먹고 카공")
-    s = body["summary"]
+    lines = body["summary"].splitlines()
     top, cafe = body["recommendations"][0], body["recommendations"][0]["cafes"][0]
-    assert s.startswith(f"조건에 맞는 코스 {len(body['recommendations'])}개를 찾았어요.")
-    assert f"1순위는 {top['name']}(역에서 직선 {top['distance_m']}m)" in s
-    assert f"식사 후 {cafe['name']}(직선 {cafe['distance_m']}m)" in s
-    assert len(s.splitlines()) == 2 and len(s) < len(body["message"])
+    assert lines[0] == f"조건에 맞는 코스 {len(body['recommendations'])}개를 찾았어요."
+    assert lines[1] == f"1순위 **{top['name']}** · 역에서 직선 {top['distance_m']}m"
+    assert lines[2] == f"식사 후 카페 **{cafe['name']}** · 식당에서 직선 {cafe['distance_m']}m"
+    assert lines[3].endswith("카드와 지도에서 확인해 주세요.")
+    assert len(body["summary"]) < len(body["message"])
 
 
 def test_summary_none_without_recommendations(make_settings):

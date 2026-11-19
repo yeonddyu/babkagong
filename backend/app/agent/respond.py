@@ -196,15 +196,16 @@ def _summary(intent: str, body: dict[str, Any]) -> str | None:
     if intent != "recommend" or body.get("clarify") or not recs:
         return None
     top = recs[0]
-    first = f"1순위는 {top['name']}"
+    lead = "앞서 보여 드린 곳을 빼고 " if body.get("more") else ""
+    lines = [f"{lead}조건에 맞는 코스 {len(recs)}개를 찾았어요."]
+    meal = f"1순위 **{top['name']}**"
     if top.get("distance_m") is not None:
-        first += f"(역에서 직선 {top['distance_m']}m)"
+        meal += f" · 역에서 직선 {top['distance_m']}m"
+    lines.append(meal)
     if top.get("cafes"):
         c = top["cafes"][0]
-        first += f", 식사 후 {c['name']}" + (f"(직선 {c['distance_m']}m)" if c.get("distance_m") is not None else "")
-    lead = "앞서 보여 드린 곳을 빼고 " if body.get("more") else ""
-    lines = [f"{lead}조건에 맞는 코스 {len(recs)}개를 찾았어요. {first}.",
-             "메뉴·가격·카페 후보는 카드와 지도에서 확인해 주세요."]
+        lines.append(f"식사 후 카페 **{c['name']}**" + (f" · 식당에서 직선 {c['distance_m']}m" if c.get("distance_m") is not None else ""))
+    lines.append("메뉴·가격·다른 카페 후보는 카드와 지도에서 확인해 주세요.")
     if body.get("disclaimer"):
         lines.append(body["disclaimer"])
     return "\n".join(lines)
