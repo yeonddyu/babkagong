@@ -4,3 +4,10 @@ declare module '*.vue' {
   const component: DefineComponent<object, object, any>
   export default component
 }
+
+interface ImportMetaEnv {
+  readonly VITE_KAKAO_MAP_KEY?: string
+}
+interface ImportMeta {
+  readonly env: ImportMetaEnv
+}

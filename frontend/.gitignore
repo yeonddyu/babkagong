@@ -1,3 +1,7 @@
 node_modules/
 dist/
 *.tsbuildinfo
+
+# 로컬 키 (커밋 금지)
+.env.local
+.env.*.local
