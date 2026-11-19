@@ -66,6 +66,7 @@ export interface ChatResponse {
   decided_by: 'llm' | 'rule'
   message: string
   message_by: 'template' | 'llm'
+  summary?: string | null
   conditions: Record<string, any>
   clarify: boolean
   weather: Record<string, any> | null

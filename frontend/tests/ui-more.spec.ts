@@ -19,14 +19,14 @@ describe('다른 곳 더 보기', () => {
     await w.find('input').setValue('강남역 점심')
     await w.find('form').trigger('submit')
     await flushPromises()
-    expect(w.find('aside.side').findAll('article.rec')).toHaveLength(5)
+    expect(w.find('.course-panel').findAll('article.rec')).toHaveLength(5)
     expect(w.find('.more-note').exists()).toBe(false)
 
     await w.find('button.more-btn').trigger('click')
     await flushPromises()
     const bodies = fetch.mock.calls.filter(([u]) => u === '/api/chat/stream').map(([, i]) => JSON.parse(i!.body as string))
     expect(bodies[1]).toEqual({ message: '다른 곳 더 보여줘', session_id: 's1', area: '강남역' })
-    const names = w.find('aside.side').findAll('article.rec h3').map((h) => h.text())
+    const names = w.find('.course-panel').findAll('article.rec h3').map((h) => h.text())
     expect(names).toEqual(['새1', '새2', '새3', '새4', '새5'])
     expect(w.find('.more-note').text()).toContain('앞서 보여 드린 곳은 빼고')
     expect(w.findAll('section.chat .course-chips')).toHaveLength(2) // 이전 답변의 칩은 남되 비활성

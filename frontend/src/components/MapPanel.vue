@@ -183,7 +183,7 @@ onMounted(async () => {
       lastSize = size
       map.relayout()
       drawKakao()
-      fit(false)
+      fit(props.focus != null) // 장소를 보러 온 경우(모바일 지도 탭 전환)는 그 코스로 맞춘다
     })
     resizeObs.observe(mapEl.value)
   }

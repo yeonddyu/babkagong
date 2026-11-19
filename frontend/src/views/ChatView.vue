@@ -3,12 +3,13 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { api, ApiError } from '../api'
 import CoursePanel from '../components/CoursePanel.vue'
+import MapPanel from '../components/MapPanel.vue'
 import RunTimeline from '../components/RunTimeline.vue'
 import StatusBanner from '../components/StatusBanner.vue'
 import { formatMessage } from '../utils/format'
 import { weatherMood } from '../utils/weather'
 import WeatherMascot from '../components/WeatherMascot.vue'
-import { chosenCafeIndex, courseState, resetCourse, selectCourse } from '../stores/course'
+import { chooseCafe, chosenCafeIndex, courseState, focusPlace, resetCourse, selectCourse } from '../stores/course'
 import type { Area, ChatResponse, RunEvent } from '../types'
 
 interface Turn {
@@ -35,7 +36,7 @@ const savingIndex = ref<number | null>(null)
 const listEl = ref<HTMLElement | null>(null)
 const liveEvents = ref<RunEvent[]>([])
 const selected = computed(() => courseState.selected)
-const mobileTab = ref<'chat' | 'course'>('chat')
+const mobileTab = ref<'chat' | 'map'>('chat')
 const mood = computed(() => weatherMood(latest.value?.weather))
 
 // 오른쪽 패널에는 가장 최근의 추천 결과만 보여 준다 (저장·인사 응답은 이전 코스를 유지)
@@ -78,10 +79,23 @@ async function saveCourse(index: number) {
   await send(`${index + 1}번 코스 저장해줘 (카페 ${chosenCafeIndex(index) + 1}번)`)
 }
 
-function showCourse(index: number) {
+const isMobile = () => typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 900px)').matches
+const smooth = (): ScrollBehavior =>
+  typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
+
+// 대화의 코스 칩: 그 코스를 고르고 아래 추천 카드로 이동 (지도는 공통 상태로 함께 바뀜)
+async function showCourse(index: number) {
   selectCourse(index)
-  mobileTab.value = 'course'
+  await nextTick()
+  document.getElementById(`course-${index}`)?.scrollIntoView?.({ behavior: smooth(), block: 'start' })
 }
+
+// 모바일: 지도에서 보기 요청이 오면 지도 탭으로 전환
+function showMap() {
+  mobileTab.value = 'map'
+  window.scrollTo?.({ top: 0, behavior: smooth() })
+}
+watch(() => courseState.focus, (f) => { if (f && isMobile()) showMap() })
 
 function newConversation() {
   turns.value = []
@@ -98,14 +112,14 @@ async function scroll() {
 <template>
   <div class="workspace" :data-tab="mobileTab" :data-weather="mood ?? 'none'">
     <div class="mobile-tabs" role="tablist" aria-label="화면 전환">
-      <button role="tab" :aria-selected="mobileTab === 'chat'" :class="{ on: mobileTab === 'chat' }" @click="mobileTab = 'chat'">대화</button>
-      <button role="tab" :aria-selected="mobileTab === 'course'" :class="{ on: mobileTab === 'course' }" @click="mobileTab = 'course'">
-        코스·지도<span v-if="latest?.recommendations.length" class="count">{{ latest.recommendations.length }}</span>
+      <button role="tab" :aria-selected="mobileTab === 'chat'" :class="{ on: mobileTab === 'chat' }" @click="mobileTab = 'chat'">대화·추천</button>
+      <button role="tab" :aria-selected="mobileTab === 'map'" :class="{ on: mobileTab === 'map' }" @click="mobileTab = 'map'">
+        지도<span v-if="latest?.recommendations.length" class="count">{{ latest.recommendations.length }}</span>
       </button>
     </div>
 
-    <section class="chat" aria-label="대화">
-      <WeatherMascot :weather="latest?.weather" :has-result="!!latest" />
+    <div class="left">
+      <WeatherMascot :weather="latest?.weather" :has-result="!!latest" :policy="latest?.weather_policy" />
       <div class="toolbar card">
         <div class="area-select" role="radiogroup" aria-label="지역 선택">
           <span class="muted small">지역</span>
@@ -116,88 +130,111 @@ async function scroll() {
       </div>
       <StatusBanner />
 
-      <div ref="listEl" class="turns">
-        <div v-if="!turns.length" class="welcome card">
-          <h2>오늘은 어디서 먹고, 어디서 공부할까요?</h2>
-          <p class="muted">조건을 말하면 메뉴 가격·영업시간·날씨를 확인해서 식당과 근처 카페를 함께 골라 드려요.
-            확인되지 않은 정보는 ‘미확인’으로 표시해요.</p>
-          <div class="examples">
-            <button v-for="ex in EXAMPLES" :key="ex" class="btn example" @click="send(ex)">{{ ex }}</button>
+      <section class="chat card" aria-label="대화">
+        <div ref="listEl" class="turns">
+          <div v-if="!turns.length" class="welcome">
+            <h2>오늘은 어디서 먹고, 어디서 공부할까요?</h2>
+            <p class="muted">조건을 말하면 메뉴 가격·영업시간·날씨를 확인해서 식당과 근처 카페를 함께 골라 드려요.
+              확인되지 않은 정보는 ‘미확인’으로 표시해요.</p>
+            <div class="examples">
+              <button v-for="ex in EXAMPLES" :key="ex" class="btn example" @click="send(ex)">{{ ex }}</button>
+            </div>
           </div>
+
+          <template v-for="(t, i) in turns" :key="i">
+            <div v-if="t.role === 'user'" class="bubble user">{{ t.text }}</div>
+            <div v-else class="answer">
+              <div v-if="t.error" class="notice bad">{{ t.error }}</div>
+              <template v-else-if="t.result">
+                <div class="bubble bot">
+                  <!-- 대화창은 짧게: 요약이 있으면 요약만, 전체 답변은 펼쳐서 -->
+                  <template v-if="t.result.summary">
+                    <pre class="msg summary" v-html="formatMessage(t.result.summary)" />
+                    <details class="full">
+                      <summary>전체 답변 보기</summary>
+                      <pre class="msg" v-html="formatMessage(t.text)" />
+                    </details>
+                  </template>
+                  <pre v-else class="msg" v-html="formatMessage(t.text)" />
+                  <p v-if="t.result.saved_plan" class="small">
+                    <RouterLink :to="`/plans/${t.result.saved_plan.id}`">저장한 계획 보기</RouterLink>
+                  </p>
+                </div>
+                <div v-if="t.result.notices.length" class="notices">
+                  <div v-for="n in t.result.notices" :key="n" class="notice warn">{{ n }}</div>
+                </div>
+                <div v-if="t.result.recommendations.length" class="course-chips" aria-label="이 답변의 코스">
+                  <button v-for="(r, ri) in t.result.recommendations" :key="r.source + r.source_id" class="chip"
+                          :class="{ on: t.result === latest && selected === ri }" :disabled="t.result !== latest"
+                          @click="showCourse(ri)">
+                    {{ ri + 1 }}. {{ r.name }}
+                  </button>
+                </div>
+                <RunTimeline :events="t.result.events" :elapsed-ms="t.result.elapsed_ms" />
+              </template>
+            </div>
+          </template>
+          <RunTimeline v-if="busy" :events="liveEvents" live />
         </div>
 
-        <template v-for="(t, i) in turns" :key="i">
-          <div v-if="t.role === 'user'" class="bubble user">{{ t.text }}</div>
-          <div v-else class="answer">
-            <div v-if="t.error" class="notice bad">{{ t.error }}</div>
-            <template v-else-if="t.result">
-              <div class="bubble bot">
-                <pre class="msg" v-html="formatMessage(t.text)" />
-                <p v-if="t.result.saved_plan" class="small">
-                  <RouterLink :to="`/plans/${t.result.saved_plan.id}`">저장한 계획 보기</RouterLink>
-                </p>
-              </div>
-              <div v-if="t.result.notices.length" class="notices">
-                <div v-for="n in t.result.notices" :key="n" class="notice warn">{{ n }}</div>
-              </div>
-              <div v-if="t.result.recommendations.length" class="course-chips" aria-label="이 답변의 코스">
-                <button v-for="(r, ri) in t.result.recommendations" :key="r.source + r.source_id" class="chip"
-                        :class="{ on: t.result === latest && selected === ri }" :disabled="t.result !== latest"
-                        @click="showCourse(ri)">
-                  {{ ri + 1 }}. {{ r.name }}
-                </button>
-              </div>
-              <RunTimeline :events="t.result.events" :elapsed-ms="t.result.elapsed_ms" />
-            </template>
-          </div>
-        </template>
-        <RunTimeline v-if="busy" :events="liveEvents" live />
-      </div>
+        <form class="composer" @submit.prevent="send()">
+          <input v-model="input" :disabled="busy" maxlength="500"
+                 :placeholder="`예: ${area}에서 1만원 이하로 점심 먹고 카공`" aria-label="메시지" />
+          <button class="btn primary" :disabled="busy || !input.trim()">{{ busy ? '처리 중…' : '보내기' }}</button>
+        </form>
+      </section>
 
-      <form class="composer card" @submit.prevent="send()">
-        <input v-model="input" :disabled="busy" maxlength="500"
-               :placeholder="`예: ${area}에서 1만원 이하로 점심 먹고 카공`" aria-label="메시지" />
-        <button class="btn primary" :disabled="busy || !input.trim()">{{ busy ? '처리 중…' : '보내기' }}</button>
-      </form>
-    </section>
-
-    <aside class="side">
       <CoursePanel :result="latest" :selected="selected" :saving-index="savingIndex" :busy="busy"
-                   @select="selectCourse" @save="saveCourse" @more="send('다른 곳 더 보여줘')" @show-map="mobileTab = 'course'" />
+                   @select="selectCourse" @save="saveCourse" @more="send('다른 곳 더 보여줘')" @show-map="showMap" />
+    </div>
+
+    <aside class="mapside" aria-label="지도">
+      <MapPanel v-if="latest?.recommendations.length" :recommendations="latest.recommendations" :selected="selected"
+                :cafe-choice="courseState.cafeChoice" :focus="courseState.focus"
+                @select="selectCourse" @focus="focusPlace" @choose-cafe="chooseCafe" />
+      <div v-else class="map-empty card">
+        <p class="empty-title">아직 고른 코스가 없어요</p>
+        <p class="muted small">왼쪽에서 지역과 조건을 말하면, 식당과 식사 후 갈 카페를 이 지도에 표시해 드려요.</p>
+      </div>
     </aside>
   </div>
 </template>
 
 <style scoped>
-.workspace { display: grid; grid-template-columns: minmax(340px, 440px) 1fr; gap: 18px; align-items: start; }
+/* 데스크톱: 왼쪽 45 (마스코트·대화·룰렛·카드) / 오른쪽 55 (따라오는 지도) */
+.workspace { display: grid; grid-template-columns: minmax(0, 45fr) minmax(0, 55fr); gap: 20px; align-items: start; }
 .mobile-tabs { display: none; }
-/* 날씨에 따라 코스 영역 바탕을 아주 옅게 물들인다 (응답이 없으면 기본) */
-.side { border-radius: 28px; transition: background-color .6s ease; }
-.workspace[data-weather='rain'] .side, .workspace[data-weather='snow'] .side, .workspace[data-weather='cold'] .side { background: #f1f3f4; }
-.workspace[data-weather='hot'] .side, .workspace[data-weather='clear'] .side { background: #fbf1e2; }
-.chat { display: flex; flex-direction: column; gap: 12px; height: calc(100vh - 110px); min-height: 520px; position: sticky; top: 12px; }
-.side { min-width: 0; padding: 0 0 24px; }
+.left { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding-bottom: 24px; }
+.mapside { position: sticky; top: 12px; min-width: 0; --map-h: max(360px, calc(100vh - 250px)); }
+.map-empty { min-height: 360px; display: grid; align-content: center; padding: 28px; border-radius: 26px;
+  background: repeating-linear-gradient(45deg, var(--paper), var(--paper) 14px, #fbf4ea 14px, #fbf4ea 28px); }
+.empty-title { font-family: 'Gowun Dodum', sans-serif; font-size: 20px; margin: 0 0 6px; }
 .toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 14px; }
 .area-select { display: flex; align-items: center; gap: 6px; }
 .area-btn { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 6px 14px; }
 .area-btn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 .toolbar > .btn { margin-left: auto; }
-.turns { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 4px; }
+.chat { display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 22px; }
+.turns { max-height: min(56vh, 560px); min-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 4px; }
 .welcome h2 { font-family: 'Gowun Dodum', sans-serif; margin: 0 0 8px; }
 .examples { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .example { text-align: left; background: var(--accent-soft); border-color: transparent; }
 .bubble { max-width: 90%; border-radius: 18px; padding: 10px 14px; }
 .bubble.user { align-self: flex-end; background: var(--ink); color: #fff; border-bottom-right-radius: 6px; }
-.bubble.bot { background: var(--paper); border: 1px solid var(--line); border-bottom-left-radius: 6px; }
+.bubble.bot { background: #fff; border: 1px solid var(--line); border-bottom-left-radius: 6px; }
 .msg { margin: 0; white-space: pre-wrap; font-family: inherit; font-size: 14px; line-height: 1.6; }
+.full { margin-top: 6px; }
+.full summary { cursor: pointer; font-size: 13px; color: var(--accent); }
+.full .msg { margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--line); color: var(--muted); font-size: 13px; }
 .answer { display: flex; flex-direction: column; gap: 8px; }
 .notices { display: grid; gap: 6px; }
 .course-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 5px 12px; font-size: 13px; }
 .chip.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 700; }
 .chip:disabled { opacity: .55; cursor: default; }
-.composer { display: flex; gap: 8px; padding: 8px; }
+.composer { display: flex; gap: 8px; padding: 6px; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
 .composer input { flex: 1; min-width: 0; border: none; outline: none; padding: 10px; background: transparent; }
+.composer:focus-within { border-color: var(--accent); }
 .composer .btn { white-space: nowrap; flex: none; }
 
 @media (max-width: 900px) {
@@ -206,8 +243,12 @@ async function scroll() {
   .mobile-tabs button { flex: 1; border: none; background: transparent; border-radius: 999px; padding: 9px; font-weight: 500; color: var(--muted); }
   .mobile-tabs button.on { background: var(--ink); color: #fff; }
   .count { display: inline-grid; place-items: center; min-width: 18px; height: 18px; margin-left: 6px; border-radius: 999px; background: var(--accent); color: #fff; font-size: 11px; }
-  .chat { position: static; height: calc(100vh - 150px); }
-  .workspace[data-tab='chat'] .side, .workspace[data-tab='course'] .chat { display: none; }
+  .workspace[data-tab='chat'] .mapside, .workspace[data-tab='map'] .left { display: none; }
+  .mapside { position: static; --map-h: 58vh; }
+  /* 모바일 대화 탭: 입력창을 화면 아래에 고정해 카드까지 내려가도 바로 입력 */
+  .left { padding-bottom: 84px; }
+  .composer { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 6; box-shadow: 0 8px 24px -10px rgba(60, 40, 20, .35); }
+  .turns { max-height: 60vh; }
   .bubble { max-width: 100%; }
 }
 </style>

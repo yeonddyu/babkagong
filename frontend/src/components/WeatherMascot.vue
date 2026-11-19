@@ -4,7 +4,7 @@
 import { computed } from 'vue'
 import { mascotLine, mascotState } from '../utils/weather'
 
-const props = defineProps<{ weather: Record<string, any> | null | undefined; hasResult: boolean }>()
+const props = withDefaults(defineProps<{ weather: Record<string, any> | null | undefined; hasResult: boolean; policy?: string[] }>(), { policy: () => [] })
 const state = computed(() => mascotState(props.weather, props.hasResult))
 const line = computed(() => mascotLine(state.value, props.weather))
 const w = computed(() => props.weather ?? null)
@@ -112,6 +112,9 @@ const LABEL: Record<string, string> = {
       </p>
       <p v-if="state === 'rain-maybe'" class="small muted">강수확률만 높고 강수형태는 ‘없음’인 예보예요 (실제 비가 온다는 뜻은 아니에요).</p>
       <p v-if="facts" class="small muted source">기상청 단기예보 기준 · 실측값 아님</p>
+      <ul v-if="hasResult && policy.length" class="policy small" aria-label="추천에 반영한 날씨 정책">
+        <li v-for="p in policy" :key="p">{{ p }}</li>
+      </ul>
     </div>
   </section>
 </template>
@@ -142,6 +145,8 @@ const LABEL: Record<string, string> = {
 .facts { margin: 0; }
 .tag { display: inline-block; background: var(--ink); color: #fff; border-radius: 999px; padding: 1px 8px; margin-right: 4px; font-size: 11px; }
 .source { margin: 0; }
+.policy { margin: 0; padding: 0; list-style: none; color: var(--coffee); }
+.policy li::before { content: '날씨 반영 · '; color: var(--muted); }
 .talk p.muted { margin: 0; }
 @keyframes bob { 50% { transform: translateY(-3px); } }
 @keyframes shiver { 25% { transform: translateX(-1px); } 75% { transform: translateX(1px); } }
