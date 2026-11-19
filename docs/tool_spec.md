@@ -49,6 +49,7 @@
 | `search_restaurant_candidates` | external_api | F3002 | 서울관광재단 음식관광 API(1순위), 서울 열린데이터광장 강남구 일반음식점 인허가(보완) |
 | `get_restaurant_details` | external_api | F3003 | 서울관광재단 음식관광 API(식당기본정보·메뉴정보 한국어·식당운영정보), 강남구 인허가(기본정보만) |
 | `search_nearby_cafes` | external_api | F3004 | 카카오 로컬 API (카테고리 검색 CE7), 보조: 강남구 휴게음식점 인허가 |
+| `get_weather_context` | external_api | 추가 | 기상청 단기예보 조회서비스 |
 
 ---
 
@@ -192,7 +193,39 @@
 | 응답 시간 초과 | `TIMEOUT` |
 | 401/403(키 오류), 429(한도 초과), 5xx, JSON/구조 오류 | `API_ERROR` |
 
-## 6. Tool 연결 (앞 Tool 출력 → 다음 Tool 입력)
+## 6. `get_weather_context` (추가 기능 — 기상청)
+
+**설명(Agent 노출)**: 방문 날짜·시각의 날씨(기온, 강수확률, 비·눈 여부)를 반영해 음식점·카페 추천 우선순위를 정해야 할 때 사용한다. 지역(강남역/역삼역) 또는 위경도와 방문 날짜·시각을 넣는다. 오늘부터 약 3일 이내 예보만 제공한다.
+
+### 입력
+| 필드 | 타입 | 필수 | 기본값 |
+|---|---|---|---|
+| `area` | `"강남역" \| "역삼역"` | 위경도 없으면 O | - |
+| `latitude`, `longitude` | float | area 없으면 O | - |
+| `visit_date` | YYYY-MM-DD | X | 오늘 |
+| `visit_time` | HH:MM | X | 다음 정시 (다른 날짜면 12:00) |
+
+### 출력 `data`
+`location`, `grid{nx,ny}`, `requested`, `forecast_datetime`(실제 사용한 정시), `base_datetime`(기상청 발표 시각), `default_applied[]`, `temperature_c`(TMP), `precipitation_probability`(POP %), `precipitation_type`(PTY: 없음/비/비/눈/눈/소나기), `sky`(SKY: 맑음/구름많음/흐림), `precipitation_amount`(PCP 원문), `humidity`(REH), `wind_speed_ms`(WSD), `missing_fields[]`, `notes[]`, `source`
+
+### 동작 규칙
+- 위경도 → 기상청 격자(LCC 변환식). 강남역·역삼역 모두 (61, 125).
+- 발표 시각: 02·05·08·11·14·17·20·23시, 발표 10분 후부터 조회. `min(조회 가능한 최신 발표, 예보 시각 직전 발표)` 를 사용.
+- 분 단위 시각은 정시 예보로 대체하고 `notes` 에 표시. 이미 지난 시각은 예보값이며 실측값이 아님을 표시.
+- 응답에 없는 항목은 null + `missing_fields`.
+
+### 실패
+| 상황 | 결과 |
+|---|---|
+| 지역·좌표 누락, 잘못된 지역 | `INVALID_INPUT` |
+| 지난 날짜, 3일 초과, 해당 시각 예보 없음, resultCode 03 | `NO_RESULT` |
+| 키 없음 | `MISSING_API_KEY` |
+| 시간 초과 | `TIMEOUT` |
+| 키 오류(XML 응답), HTTP 오류 | `API_ERROR` |
+
+날씨 Tool 이 실패해도 Agent 는 기본 추천 정책으로 계속 진행한다.
+
+## 7. Tool 연결 (앞 Tool 출력 → 다음 Tool 입력)
 
 ```
 search_restaurant_candidates(area, food_type?, reference_date?, max_results?)
