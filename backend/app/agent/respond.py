@@ -128,6 +128,18 @@ def _template_message(intent: str, body: dict[str, Any]) -> str:
         return "안녕하세요! 밥카공이에요. 강남역·역삼역에서 식사하고 카공할 곳을 함께 추천해 드릴게요. 어디서 무엇을 드시고 싶은지 말씀해 주세요."
     if intent == "help":
         return HELP_TEXT
+    if intent == "save_plan":
+        sr = body.get("save_result") or {}
+        if not sr.get("ok"):
+            return sr.get("reason", "계획을 저장하지 못했습니다.")
+        p = sr["plan"]
+        lines = [f"계획을 저장했어요: {p['title']} — {p['plan_date']} {p['start_time'][:5]}~{p['end_time'][:5]}"]
+        for a in sr.get("assumptions", []):
+            lines.append(f"ℹ {a}")
+        if sr.get("conflicts"):
+            lines.append("⚠ 같은 날 시간이 겹치는 계획이 있어요 (저장은 완료): " +
+                         ", ".join(f"{c['title']}({c['start_time'][:5]}~{c['end_time'][:5]})" for c in sr["conflicts"]))
+        return "\n".join(lines)
     if intent == "out_of_scope":
         return "저는 강남역·역삼역 주변 식사 장소와 카공 카페 추천만 도와드릴 수 있어요. 예: \"역삼역 1만원 이하 점심 먹고 카공\""
     if body.get("clarify"):
@@ -186,6 +198,7 @@ def build_response(
     stop_reason: str | None,
     changed_fields: list[str],
     llm: Any | None = None,
+    save_result: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     recs_raw = []
     if data and ev:
@@ -232,6 +245,9 @@ def build_response(
         "notices": _notices(ex) + _weather_mismatch(analysis, data),
         "disclaimer": HEALTH_DISCLAIMER if analysis.mentions_health else None,
         "query_basis": (data.candidate_meta or {}).get("query_basis") if data else None,
+        "saved_plan": (save_result or {}).get("plan"),
+        "plan_conflicts": (save_result or {}).get("conflicts", []),
+        "save_result": save_result,
     }
     body["message"] = _template_message(analysis.intent, body)
     body["message_by"] = "template"

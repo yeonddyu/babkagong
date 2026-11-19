@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import re
 import uuid
 from dataclasses import asdict
 from datetime import date, datetime
@@ -21,6 +22,7 @@ from app.agent.planning import CAFE_TARGETS, Plan, build_plan
 from app.agent.respond import build_response
 from app.datasets.cache import now_kst
 from app.events.bus import EventBus, RunPublisher
+from app.agent.course import course_from_memory
 from app.tools.registry import ToolRegistry
 
 
@@ -44,6 +46,7 @@ class AgentState(TypedDict, total=False):
     stop_reason: str | None
     judge_route: str
     publisher: RunPublisher
+    save_result: dict[str, Any] | None
     response: dict[str, Any]
 
 
@@ -56,6 +59,7 @@ class MainAgent:
         max_replans: int = 3,
         memory: MemoryStore | None = None,
         bus: EventBus | None = None,
+        plan_repo: Any | None = None,
         today_fn: Callable[[], date] = lambda: now_kst().date(),
         now_fn: Callable[[], datetime] = now_kst,
     ):
@@ -63,6 +67,7 @@ class MainAgent:
         self.llm = llm
         self.max_replans = max_replans
         self.memory = memory or InMemoryMemoryStore()
+        self.plan_repo = plan_repo  # 계획 저장은 Tool 이 아니라 실행 흐름이 직접 호출
         self.bus = bus or EventBus()  # 구독자가 없어도 동작 (발행자는 구독자를 모름)
         self.today_fn = today_fn
         self.now_fn = now_fn
@@ -76,9 +81,11 @@ class MainAgent:
         g.add_node("execute", self._stage("execute", self.execute_node))
         g.add_node("judge", self._stage("judge", self.judge_node))
         g.add_node("replan", self._stage("replan", self.replan_node))
+        g.add_node("save", self._stage("save", self.save_node))
         g.add_node("respond", self._stage("respond", self.respond_node))
         g.add_edge(START, "analyze")
-        g.add_conditional_edges("analyze", self._after_analyze, {"plan": "plan", "respond": "respond"})
+        g.add_conditional_edges("analyze", self._after_analyze, {"plan": "plan", "save": "save", "respond": "respond"})
+        g.add_edge("save", "respond")
         g.add_conditional_edges("plan", self._after_plan, {"execute": "execute", "respond": "respond"})
         g.add_edge("execute", "judge")
         g.add_conditional_edges("judge", self._after_judge, {"replan": "replan", "respond": "respond"})
@@ -117,6 +124,9 @@ class MainAgent:
                     "stop_reason": st.get("stop_reason")}
         if name == "replan":
             return {"replan": (st.get("replan_history") or [{}])[-1]}
+        if name == "save":
+            sr = st.get("save_result") or {}
+            return {"ok": sr.get("ok"), "plan_id": (sr.get("plan") or {}).get("id"), "conflicts": len(sr.get("conflicts", []))}
         if name == "respond":
             r = st["response"]
             return {"recommendations": len(r.get("recommendations", [])), "message_by": r.get("message_by")}
@@ -139,7 +149,25 @@ class MainAgent:
         return {"analysis": analysis, "conditions": conditions, "changed_fields": changed, "used_previous": used_previous}
 
     def _after_analyze(self, state: AgentState) -> str:
-        return "plan" if state["analysis"].intent == "recommend" else "respond"
+        intent = state["analysis"].intent
+        return {"recommend": "plan", "save_plan": "save"}.get(intent, "respond")
+
+    def save_node(self, state: AgentState) -> dict[str, Any]:
+        """F3015: 직전 추천 코스를 계획으로 저장 (모델 판단이 필요 없어 Tool 로 두지 않음)."""
+        previous = state.get("previous") or {}
+        m = re.search(r"(\d)\s*번", state["message"])
+        index = int(m.group(1)) - 1 if m else 0
+        if self.plan_repo is None:
+            return {"save_result": {"ok": False, "reason": "계획 저장소가 연결되지 않았습니다."}}
+        course = course_from_memory(previous, index, self.today_fn(), state["session_id"])
+        if course is None:
+            return {"save_result": {"ok": False, "reason": "저장할 추천 코스가 없어요. 먼저 추천을 받아 주세요."}}
+        try:
+            plan, conflicts = self.plan_repo.create(course["plan"])
+        except Exception:  # noqa: BLE001
+            return {"save_result": {"ok": False, "reason": "계획을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요."}}
+        return {"save_result": {"ok": True, "plan": plan.model_dump(mode="json"), "assumptions": course["assumptions"],
+                                "conflicts": [c.model_dump(mode="json") for c in conflicts]}}
 
     def plan_node(self, state: AgentState) -> dict[str, Any]:
         plan = build_plan(state["analysis"], state["conditions"], self.today_fn())
@@ -229,7 +257,7 @@ class MainAgent:
         body = build_response(
             state["analysis"], state["conditions"], state.get("plan"), state.get("data"), state.get("evaluation"),
             state.get("executor"), state.get("replan_history", []), state.get("stop_reason"),
-            state.get("changed_fields", []), self.llm,
+            state.get("changed_fields", []), self.llm, save_result=state.get("save_result"),
         )
         return {"response": body}
 
