@@ -9,12 +9,13 @@ from datetime import date
 from typing import Any
 
 from app.clients.redtable import ENDPOINT_RESTAURANT, RedtableClient
-from app.clients.seoul_opendata import SERVICE_GANGNAM_GENERAL_RESTAURANT, SeoulOpenDataClient
+from app.clients.seoul_opendata import SERVICE_GANGNAM_GENERAL_RESTAURANT, SERVICE_GANGNAM_REST_FOOD, SeoulOpenDataClient
 from app.core.geo import LOCALDATA_CRS, tm_to_wgs84, to_float, within_any_station
 from app.datasets.cache import JsonCache
 
 SOURCE_REDTABLE = "seoul_tourism_redtable"  # 서울관광재단 음식관광 API 식당기본정보
 SOURCE_GANGNAM_LICENSE = "gangnam_general_restaurant_license"  # 강남구 일반음식점 인허가 정보
+SOURCE_GANGNAM_REST_FOOD = "gangnam_rest_food_license"  # 강남구 휴게음식점 인허가 정보 (카페류)
 
 AREA_CACHE_RADIUS_M = 1500  # 캐시에 보관할 반경 (두 역 중 하나에서)
 
@@ -113,7 +114,9 @@ class RedtableRestaurantDataset:
 
 
 # ---------------------------------------------------------- 강남구 인허가
-def normalize_gangnam_license(row: dict[str, Any]) -> RestaurantRecord | None:
+def normalize_gangnam_license(
+    row: dict[str, Any], *, source: str = SOURCE_GANGNAM_LICENSE, license_type: str = "일반음식점"
+) -> RestaurantRecord | None:
     mgtno = _text(row.get("MGTNO"))
     name = _text(row.get("BPLCNM"))
     if not mgtno or not name:
@@ -125,7 +128,7 @@ def normalize_gangnam_license(row: dict[str, Any]) -> RestaurantRecord | None:
         lat, lng = tm_to_wgs84(x, y)
         note = f"출처 TM 좌표({LOCALDATA_CRS})를 WGS84 로 변환"
     return RestaurantRecord(
-        source=SOURCE_GANGNAM_LICENSE,
+        source=source,
         source_id=mgtno,
         name=name,
         road_address=_text(row.get("RDNWHLADDR")),
@@ -135,7 +138,7 @@ def normalize_gangnam_license(row: dict[str, Any]) -> RestaurantRecord | None:
         coordinate_note=note,
         category=_text(row.get("UPTAENM")),
         phone=_text(row.get("SITETEL")),
-        license_type="일반음식점",
+        license_type=license_type,
         permit_date=_ymd(row.get("APVPERMYMD")),
         closed_date=_ymd(row.get("DCBYMD")),
         status_code=_text(row.get("TRDSTATEGBN")),
@@ -160,18 +163,38 @@ def license_open_on(rec: RestaurantRecord, day: date, today: date) -> bool:
 
 
 class GangnamLicenseDataset:
+    """강남구 인허가 데이터셋. 기본은 일반음식점, rest_food() 는 휴게음식점(카페류)."""
+
     CACHE_NAME = "gangnam_license_area"
 
-    def __init__(self, client: SeoulOpenDataClient, cache: JsonCache):
+    def __init__(
+        self,
+        client: SeoulOpenDataClient,
+        cache: JsonCache,
+        *,
+        service: str = SERVICE_GANGNAM_GENERAL_RESTAURANT,
+        cache_name: str | None = None,
+        source: str = SOURCE_GANGNAM_LICENSE,
+        license_type: str = "일반음식점",
+    ):
         self.client = client
         self.cache = cache
+        self.service = service
+        self.cache_name = cache_name or self.CACHE_NAME
+        self.source = source
+        self.license_type = license_type
+
+    @classmethod
+    def rest_food(cls, client: SeoulOpenDataClient, cache: JsonCache) -> "GangnamLicenseDataset":
+        return cls(client, cache, service=SERVICE_GANGNAM_REST_FOOD, cache_name="gangnam_rest_food_area",
+                   source=SOURCE_GANGNAM_REST_FOOD, license_type="휴게음식점")
 
     def _build(self):
-        page = self.client.fetch_all(SERVICE_GANGNAM_GENERAL_RESTAURANT)
+        page = self.client.fetch_all(self.service)
         kept = []
         latest_update = None
         for row in page.rows:
-            rec = normalize_gangnam_license(row)
+            rec = normalize_gangnam_license(row, source=self.source, license_type=self.license_type)
             if rec is None:
                 continue
             upd = rec.extra.get("updated_at")
@@ -182,7 +205,7 @@ class GangnamLicenseDataset:
         return kept, {"source_total_count": page.total_count, "scanned_rows": len(page.rows), "data_updated_at": latest_update}
 
     def load(self) -> tuple[list[RestaurantRecord], dict[str, Any]]:
-        payload = self.cache.get_or_build(self.CACHE_NAME, self._build)
+        payload = self.cache.get_or_build(self.cache_name, self._build)
         meta = {k: v for k, v in payload.items() if k != "data"}
         return [RestaurantRecord.from_dict(d) for d in payload["data"]], meta
 

@@ -48,7 +48,7 @@
 |---|---|---|---|
 | `search_restaurant_candidates` | external_api | F3002 | 서울관광재단 음식관광 API(1순위), 서울 열린데이터광장 강남구 일반음식점 인허가(보완) |
 | `get_restaurant_details` | external_api | F3003 | 서울관광재단 음식관광 API(식당기본정보·메뉴정보 한국어·식당운영정보), 강남구 인허가(기본정보만) |
-| `search_nearby_cafes` | external_api | F3004 | 카카오 로컬 API (카테고리 검색 CE7) |
+| `search_nearby_cafes` | external_api | F3004 | 카카오 로컬 API (카테고리 검색 CE7), 보조: 강남구 휴게음식점 인허가 |
 
 ---
 
@@ -168,15 +168,19 @@
 |---|---|
 | `center`, `radius_m` | 적용된 검색 기준 |
 | `total_count` | 카카오가 보고한 반경 내 카페 수 |
-| `cafes[]` | `kakao_place_id`, `name`, `address`(지번), `road_address`, `latitude`, `longitude`, `distance_m`, `place_url`, `phone`, `category_name`, `opening_hours`=null, `power_outlet`=null, `wifi`=null, `congestion`=null |
+| `cafes[]` | `source`, `source_id`(카카오 장소 ID / 인허가 관리번호), `name`, `address`(지번), `road_address`, `latitude`, `longitude`, `distance_m`(직선거리), `distance_basis`, `estimated_walk_minutes`(추정), `place_url`(보조 출처는 null), `phone`, `category_name`, `opening_hours`=null, `power_outlet`=null, `wifi`=null, `congestion`=null |
 | `not_provided_fields` | `["opening_hours","power_outlet","wifi","congestion"]` — 출처에서 확인할 수 없어 null 로 둔 항목 |
-| `source` | `kakao_local_category_CE7` |
+| `walk_time_basis` | `직선거리×1.3÷67m/분 추정 (실제 경로 아님)` |
+| `source_status[]` | 출처별 `ok`, `returned`, `error_code`, `message` |
 
 ### 동작 규칙
 
 - `category_group_code=CE7`, `sort=distance`, `size=15` 로 호출하고 `max_results` 를 채울 때까지 `page` 를 늘린다 (`is_end` 이면 중단).
 - 좌표·이름·장소 링크(`place_url`) 중 하나라도 없는 문서는 결과에서 뺀다. 빈 문자열 주소·전화는 null.
 - 같은 `id` 는 한 번만 넣는다.
+- **보조 출처**: 카카오 호출이 실패했거나 0건이면 강남구 휴게음식점 인허가(`LOCALDATA_072405_GN`) 중 업태가 커피숍·다방·전통찻집·떡카페이고 현재 영업 중인 업소를 좌표(EPSG:5174→WGS84) 기준 직선거리로 찾는다. 장소 링크는 없으며 카카오 장소와 연결하지 않는다.
+- **거리와 도보 시간 구분**: `distance_m` 은 직선거리, `estimated_walk_minutes` 는 그로부터 계산한 추정치이며 실제 경로 시간이 아니다.
+- 후보 음식점(레드테이블/일반음식점 인허가)과 카페(카카오/휴게음식점 인허가)는 서로 다른 출처이며, 연결 고리는 **좌표**뿐이다.
 
 ### 실패
 

@@ -19,6 +19,7 @@ from app.core.errors import ErrorCode, ExternalAPIError
 PROVIDER = "서울 열린데이터광장 API"
 BASE_URL = "http://openapi.seoul.go.kr:8088"
 SERVICE_GANGNAM_GENERAL_RESTAURANT = "LOCALDATA_072404_GN"  # 강남구 일반음식점 인허가 정보
+SERVICE_GANGNAM_REST_FOOD = "LOCALDATA_072405_GN"  # 강남구 휴게음식점 인허가 정보 (커피숍 등)
 MAX_ROWS_PER_REQUEST = 1000
 
 _XML_CODE = re.compile(r"<CODE>\s*([A-Z]+-\d+)\s*</CODE>")
