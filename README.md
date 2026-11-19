@@ -30,7 +30,7 @@ cd backend && ../.venv/bin/uvicorn app.main:app --port 8000
 ```bash
 cd frontend && npm run dev
 ```
-카카오 지도(선택): `frontend/.env.local` 에 `VITE_KAKAO_MAP_KEY=JavaScript키` 를 넣고, 카카오 앱 > 플랫폼 > Web 에
+카카오 지도(선택): 저장소 루트 `.env` (또는 `frontend/.env.local`) 에 `VITE_KAKAO_MAP_KEY=JavaScript키` 를 넣고, 카카오 앱 > 플랫폼 > Web 에
 `http://localhost:5173` 을 등록한다. 키가 없으면 실제 좌표로 그린 위치도로 표시된다. (`frontend/.env.example` 참고)
 
 ## 화면

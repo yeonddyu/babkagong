@@ -4,7 +4,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { Recommendation } from '../types'
-import { STATIONS, haversineM, loadKakaoMaps } from '../utils/kakaoMap'
+import { STATIONS, haversineM, kakaoMapKey, loadKakaoMaps } from '../utils/kakaoMap'
 
 const props = defineProps<{ recommendations: Recommendation[]; selected: number }>()
 const emit = defineEmits<{ select: [index: number] }>()
@@ -52,6 +52,9 @@ const link = computed(() => {
 // ---------------------------------------------------------------- 카카오 지도
 const mapEl = ref<HTMLElement | null>(null)
 const mode = ref<'loading' | 'kakao' | 'fallback'>('loading')
+const fallbackReason = kakaoMapKey()
+  ? '카카오 지도를 불러오지 못해 좌표로 그린 위치도예요 (카카오 앱의 Web 도메인 등록을 확인해 주세요)'
+  : '카카오 지도 키가 없어 좌표로 그린 위치도예요'
 let kakao: any = null
 let map: any = null
 let overlays: any[] = []
@@ -186,7 +189,7 @@ const fallbackLine = computed(() => {
       <span><i class="dot meal" />식당</span>
       <span><i class="dot cafe" />카페</span>
       <span><i class="dash" />식당→카페 직선 (실제 경로 아님)</span>
-      <span v-if="mode === 'fallback'" class="muted">카카오 지도 키가 없어 좌표로 그린 위치도예요</span>
+      <span v-if="mode === 'fallback'" class="muted">{{ fallbackReason }}</span>
       <span v-if="link" class="link-note">선택한 코스: {{ link.cafe }}까지 직선 {{ link.meters }}m</span>
     </footer>
   </section>

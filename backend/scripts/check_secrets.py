@@ -16,7 +16,9 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 
 
 def main() -> int:
-    values = {k: v for k, v in dotenv_values(ROOT / ".env").items() if v and len(v) >= 12 and k.endswith(("KEY", "TOKEN"))}
+    # VITE_ 로 시작하는 값(카카오 지도 JavaScript 키)은 브라우저에 공개되는 키라 점검 대상에서 뺀다 (도메인 제한으로 보호)
+    values = {k: v for k, v in dotenv_values(ROOT / ".env").items()
+              if v and len(v) >= 12 and k.endswith(("KEY", "TOKEN")) and not k.startswith("VITE_")}
     secrets: set[str] = set()
     for v in values.values():
         secrets |= {v, urllib.parse.unquote(v), urllib.parse.quote(v, safe="")}

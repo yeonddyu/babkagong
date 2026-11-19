@@ -93,3 +93,19 @@ it('식당과 카페가 같은 건물이면 선 대신 같은 위치로 표기�
 it('직선거리 계산', () => {
   expect(Math.round(haversineM([37.497952, 127.027619], [37.500622, 127.036456]))).toBeGreaterThan(800)
 })
+
+it('키가 있는데 지도를 불러오지 못하면 도메인 등록을 안내한다', async () => {
+  vi.stubEnv('VITE_KAKAO_MAP_KEY', 'test-js-key')
+  const real = document.head.appendChild.bind(document.head)
+  vi.spyOn(document.head, 'appendChild').mockImplementation((node: any) => {
+    const r = real(node)
+    if (node.tagName === 'SCRIPT') setTimeout(() => node.onerror?.(new Event('error')))
+    return r
+  })
+  const w = mount(MapPanel, { props: { recommendations: recs, selected: 0 } })
+  await new Promise((r) => setTimeout(r, 10))
+  await flushPromises()
+  expect(w.text()).toContain('Web 도메인 등록을 확인')
+  vi.unstubAllEnvs()
+  vi.restoreAllMocks()
+})
