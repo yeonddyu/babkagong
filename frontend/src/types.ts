@@ -80,6 +80,7 @@ export interface ChatResponse {
   disclaimer: string | null
   saved_plan: Plan | null
   plan_conflicts: Conflict[]
+  more?: boolean
   events: RunEvent[]
   elapsed_ms: number
 }

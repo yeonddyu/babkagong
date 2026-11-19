@@ -159,7 +159,7 @@ async function scroll() {
 
     <aside class="side">
       <CoursePanel :result="latest" :selected="selected" :saving-index="savingIndex" :busy="busy"
-                   @select="selected = $event" @save="saveCourse" />
+                   @select="selected = $event" @save="saveCourse" @more="send('다른 곳 더 보여줘')" />
     </aside>
   </div>
 </template>

@@ -8,7 +8,7 @@ import WeatherStrip from './WeatherStrip.vue'
 import type { ChatResponse } from '../types'
 
 defineProps<{ result: ChatResponse | null; selected: number; savingIndex: number | null; busy: boolean }>()
-defineEmits<{ select: [index: number]; save: [index: number] }>()
+defineEmits<{ select: [index: number]; save: [index: number]; more: [] }>()
 </script>
 
 <template>
@@ -31,12 +31,16 @@ defineEmits<{ select: [index: number]; save: [index: number] }>()
           <li v-for="s in result.suggestions" :key="s">{{ s }}</li>
         </ul>
       </div>
-      <div v-else class="recs">
+      <p v-if="result.more && result.recommendations.length" class="more-note small">앞서 보여 드린 곳은 빼고 같은 조건으로 다시 골랐어요</p>
+      <div v-if="result.recommendations.length" class="recs">
         <div v-for="(r, ri) in result.recommendations" :key="r.source + r.source_id"
              class="rec-wrap" :class="{ on: selected === ri }" @click="$emit('select', ri)">
           <RecommendationCard :rec="r" :index="ri" :saving="busy && savingIndex === ri" @save="$emit('save', $event)" />
         </div>
       </div>
+      <button v-if="result.recommendations.length" class="btn more-btn" :disabled="busy" @click="$emit('more')">
+        {{ busy ? '찾는 중…' : '다른 곳 더 보기' }}
+      </button>
       <MenuRoulette :recommendations="result.recommendations" @select="$emit('select', $event)" />
       <details v-if="result.criteria.length || result.excluded.length" class="card small basis">
         <summary>판단 기준과 제외한 후보 ({{ result.excluded.length }})</summary>
@@ -55,6 +59,9 @@ defineEmits<{ select: [index: number]; save: [index: number] }>()
 .recs { display: grid; gap: 14px; }
 .rec-wrap { border-radius: 22px; outline: 3px solid transparent; outline-offset: 2px; transition: outline-color .2s; cursor: pointer; }
 .rec-wrap.on { outline-color: var(--accent); }
+.more-btn { align-self: center; border-radius: 999px; padding: 10px 22px; background: #fff; border: 2px dashed var(--accent); color: var(--accent); font-weight: 700; }
+.more-btn:disabled { opacity: .6; }
+.more-note { margin: 0; color: var(--accent); }
 .basis summary { cursor: pointer; font-weight: 500; }
 .basis ul { margin: 8px 0; padding-left: 18px; }
 .excluded { color: var(--muted); }
