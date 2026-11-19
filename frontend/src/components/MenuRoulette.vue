@@ -1,5 +1,6 @@
 <script setup lang="ts">
-// 메뉴 룰렛: 이번 추천 후보에서 가격이 확인된 메뉴만 돌린다. 결과는 출처 식당(코스)과 함께 보여 준다.
+// 메뉴 룰렛: 추천 코스에서 가격이 확인된 메뉴(예산 조건이 있으면 예산 안 메뉴, 없으면 대표 메뉴)를 돌린다.
+// 확인된 메뉴가 2개 미만이면 추천된 식당 중 하나를 고르는 식당 룰렛으로 바꾼다. 메뉴를 지어내지 않는다.
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { Recommendation } from '../types'
 
@@ -9,10 +10,16 @@ const props = withDefaults(defineProps<{ recommendations: Recommendation[]; rand
 })
 const emit = defineEmits<{ select: [index: number] }>()
 
-interface Slot { menu: string; price: number; course: number; restaurant: string }
-const slots = computed<Slot[]>(() =>
-  props.recommendations.flatMap((r, i) =>
-    r.matched_menus.filter((m) => m.price_krw).map((m) => ({ menu: m.name, price: m.price_krw!, course: i, restaurant: r.name }))))
+interface Slot { menu: string | null; price: number | null; course: number; restaurant: string }
+const menuSlots = computed<Slot[]>(() =>
+  props.recommendations.flatMap((r, i) => {
+    const menus = r.matched_menus.length ? r.matched_menus : r.sample_menus ?? []
+    return menus.filter((m) => m.price_krw).map((m) => ({ menu: m.name, price: m.price_krw!, course: i, restaurant: r.name }))
+  }))
+const mode = computed<'menu' | 'restaurant' | 'none'>(() =>
+  menuSlots.value.length >= 2 ? 'menu' : props.recommendations.length >= 2 ? 'restaurant' : 'none')
+const slots = computed<Slot[]>(() => (mode.value === 'menu' ? menuSlots.value
+  : props.recommendations.map((r, i) => ({ menu: null, price: null, course: i, restaurant: r.name }))))
 
 const shown = ref<Slot | null>(null)
 const result = ref<Slot | null>(null)
@@ -56,29 +63,44 @@ const won = (v: number) => `${v.toLocaleString()}원`
 </script>
 
 <template>
-  <section v-if="slots.length >= 2" class="roulette card" aria-label="메뉴 룰렛">
+  <section v-if="recommendations.length" class="roulette card" :class="`mode-${mode}`" aria-label="메뉴 룰렛">
     <div class="head">
       <div>
-        <h3>못 고르겠다면, 메뉴 룰렛</h3>
-        <p class="muted small">추천 코스에서 가격이 확인된 메뉴 {{ slots.length }}개 중에서 골라요.</p>
+        <h3>{{ mode === 'restaurant' ? '못 고르겠다면, 식당 룰렛' : '못 고르겠다면, 메뉴 룰렛' }}</h3>
+        <p class="muted small">
+          <template v-if="mode === 'menu'">추천 코스에서 가격이 확인된 메뉴 {{ slots.length }}개 중에서 골라요.</template>
+          <template v-else-if="mode === 'restaurant'">가격이 확인된 메뉴가 부족해서, 추천된 식당 {{ slots.length }}곳 중에서 골라요.</template>
+          <template v-else>추천된 곳이 한 곳뿐이고 가격이 확인된 메뉴도 부족해 룰렛을 돌릴 수 없어요.</template>
+        </p>
       </div>
-      <button class="btn primary spin" :disabled="spinning" @click="spin">{{ spinning ? '돌리는 중…' : result ? '다시 돌리기' : '룰렛 돌리기' }}</button>
+      <button v-if="mode !== 'none'" class="btn primary spin" :disabled="spinning" @click="spin">
+        {{ spinning ? '돌리는 중…' : result ? '다시 돌리기' : '룰렛 돌리기' }}
+      </button>
     </div>
-    <div class="window" :class="{ spinning, done: !!result }" aria-live="polite">
-      <template v-if="shown">
-        <span class="bowl" aria-hidden="true">🍚</span>
-        <strong class="menu">{{ shown.menu }}</strong>
-        <span class="price">{{ won(shown.price) }}</span>
-        <span class="from small muted">{{ shown.course + 1 }}번 코스 · {{ shown.restaurant }}</span>
-      </template>
-      <span v-else class="muted small">버튼을 누르면 메뉴가 돌아가요</span>
-    </div>
-    <button v-if="result" class="btn go" @click="emit('select', result.course)">{{ result.course + 1 }}번 코스 보기</button>
+    <template v-if="mode !== 'none'">
+      <div class="window" :class="{ spinning, done: !!result }" aria-live="polite">
+        <template v-if="shown">
+          <span class="bowl" aria-hidden="true">🍚</span>
+          <template v-if="shown.menu">
+            <strong class="menu">{{ shown.menu }}</strong>
+            <span class="price">{{ won(shown.price!) }}</span>
+            <span class="from small muted">{{ shown.course + 1 }}번 코스 · {{ shown.restaurant }}</span>
+          </template>
+          <template v-else>
+            <strong class="menu">{{ shown.restaurant }}</strong>
+            <span class="from small muted">{{ shown.course + 1 }}번 코스</span>
+          </template>
+        </template>
+        <span v-else class="muted small">버튼을 누르면 {{ mode === 'menu' ? '메뉴' : '식당' }}가 돌아가요</span>
+      </div>
+      <button v-if="result" class="btn go" @click="emit('select', result.course)">{{ result.course + 1 }}번 코스 보기</button>
+    </template>
   </section>
 </template>
 
 <style scoped>
 .roulette { border-radius: 22px; padding: 16px 18px; display: grid; gap: 12px; background: linear-gradient(#fffdf8, #fff6ec); }
+.roulette.mode-none { background: var(--paper); }
 .head { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; }
 h3 { margin: 0; font-family: 'Gowun Dodum', sans-serif; font-size: 17px; }
 .head p { margin: 2px 0 0; }

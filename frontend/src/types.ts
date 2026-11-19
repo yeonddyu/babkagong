@@ -38,6 +38,7 @@ export interface Recommendation {
   distance_m: number | null
   estimated_walk_minutes: number | null
   matched_menus: { name: string; price_krw: number | null }[]
+  sample_menus?: { name: string; price_krw: number | null }[]
   business_hours: string | null
   checks: Check[]
   score: number

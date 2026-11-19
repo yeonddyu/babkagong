@@ -17,6 +17,15 @@ describe('추천 카드', () => {
     expect(w.findAll('.menu').map((m) => m.text())).toEqual(['김치찌개 9,000원', '제육볶음 11,000원'])
   })
 
+  it('예산 조건이 없으면 대표 메뉴를, 메뉴가 없으면 정보 없음을 표시한다', () => {
+    const w = mount(RecommendationCard, { props: { rec: makeRec({ matched_menus: [], sample_menus: [{ name: '쌀국수', price_krw: 9500 }] }), index: 0 } })
+    expect(w.find('.menus').attributes('aria-label')).toBe('대표 메뉴')
+    expect(w.find('.menu').text()).toBe('쌀국수 9,500원')
+    const none = mount(RecommendationCard, { props: { rec: makeRec({ matched_menus: [], sample_menus: [] }), index: 0 } })
+    expect(none.find('.menus').exists()).toBe(false)
+    expect(none.find('.no-menu').text()).toBe('메뉴·가격 정보 없음')
+  })
+
   it('영업시간이 없으면 미확인으로 구분해 표시한다', () => {
     const w = mount(RecommendationCard, { props: { rec: makeRec({ business_hours: null }), index: 0 } })
     const fact = w.findAll('.fact').find((f) => f.text() === '영업시간 미확인')

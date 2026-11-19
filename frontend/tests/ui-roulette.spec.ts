@@ -19,10 +19,35 @@ describe('메뉴 룰렛', () => {
     expect(w.emitted('select')?.[0]).toEqual([1])
   })
 
-  it('가격이 없는 메뉴는 제외하고, 후보가 2개 미만이면 룰렛을 숨긴다', () => {
+  it('가격이 없는 메뉴는 제외하고, 식당도 1곳뿐이면 돌릴 수 없는 이유를 안내한다', () => {
     const recs = [makeRec({ matched_menus: [{ name: '가격없음', price_krw: null }, { name: '김치찌개', price_krw: 9000 }] })]
     const w = mount(MenuRoulette, { props: { recommendations: recs, spinMs: 0 } })
-    expect(w.find('.roulette').exists()).toBe(false)
+    expect(w.find('.roulette').classes()).toContain('mode-none')
+    expect(w.text()).toContain('룰렛을 돌릴 수 없어요')
+    expect(w.find('button.spin').exists()).toBe(false)
+  })
+
+  it('예산 조건이 없으면 대표 메뉴(sample_menus)로 메뉴 룰렛을 돌린다', async () => {
+    const recs = [makeRec({ matched_menus: [], sample_menus: [{ name: '쌀국수', price_krw: 9500 }] }),
+                  makeRec({ name: '분식집', source_id: '9', matched_menus: [], sample_menus: [{ name: '떡볶이', price_krw: 4500 }] })]
+    const w = mount(MenuRoulette, { props: { recommendations: recs, spinMs: 0, random: () => 0.9 } })
+    expect(w.find('h3').text()).toBe('못 고르겠다면, 메뉴 룰렛')
+    await w.find('button.spin').trigger('click')
+    expect(w.find('.window .menu').text()).toBe('떡볶이')
+    expect(w.find('.window .price').text()).toBe('4,500원')
+  })
+
+  it('확인된 메뉴가 부족하면 추천 식당 룰렛으로 바꾸고 메뉴를 지어내지 않는다', async () => {
+    const recs = ['쌀국수집', '백반집', '분식집'].map((n, i) =>
+      makeRec({ name: n, source_id: `r${i}`, matched_menus: [], sample_menus: [] }))
+    const w = mount(MenuRoulette, { props: { recommendations: recs, spinMs: 0, random: () => 0.5 } })
+    expect(w.find('h3').text()).toBe('못 고르겠다면, 식당 룰렛')
+    expect(w.text()).toContain('추천된 식당 3곳 중에서')
+    await w.find('button.spin').trigger('click')
+    expect(w.find('.window .menu').text()).toBe('백반집')
+    expect(w.find('.window .price').exists()).toBe(false)
+    await w.find('button.go').trigger('click')
+    expect(w.emitted('select')?.[0]).toEqual([1])
   })
 
   it('애니메이션 중에는 여러 메뉴를 보여 주다가 정해진 결과에서 멈춘다', async () => {

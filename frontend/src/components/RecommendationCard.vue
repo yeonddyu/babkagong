@@ -19,6 +19,9 @@ const sourceLabel = (s: string) =>
   })[s] ?? s
 
 const mainCafe = computed(() => props.rec.cafes[0] ?? null)
+// 예산 조건이 있으면 예산 내 메뉴, 없으면 가격이 확인된 대표 메뉴
+const menus = computed(() => (props.rec.matched_menus.length ? props.rec.matched_menus : props.rec.sample_menus ?? []))
+const menuLabel = computed(() => (props.rec.matched_menus.length ? '예산 안 메뉴' : '대표 메뉴'))
 const otherCafes = computed(() => props.rec.cafes.slice(1))
 </script>
 
@@ -45,9 +48,10 @@ const otherCafes = computed(() => props.rec.cafes.slice(1))
       <span class="fact tag">{{ rec.food_type ?? rec.category ?? '분류 미확인' }}</span>
     </div>
 
-    <ul v-if="rec.matched_menus.length" class="menus" aria-label="확인된 메뉴">
-      <li v-for="m in rec.matched_menus.slice(0, 3)" :key="m.name" class="menu">{{ m.name }} <b>{{ won(m.price_krw) }}</b></li>
+    <ul v-if="menus.length" class="menus" :aria-label="menuLabel">
+      <li v-for="m in menus.slice(0, 3)" :key="m.name" class="menu">{{ m.name }} <b>{{ won(m.price_krw) }}</b></li>
     </ul>
+    <p v-else class="no-menu small">메뉴·가격 정보 없음</p>
 
     <div class="checks" aria-label="조건 판단">
       <span v-for="c in rec.checks" :key="c.criterion" class="pill" :class="resultClass(c.result)" :title="c.value">
@@ -115,6 +119,7 @@ const otherCafes = computed(() => props.rec.cafes.slice(1))
 .menus { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
 .menu { background: var(--accent-soft); border-radius: 999px; padding: 6px 12px; font-size: 13px; }
 .menu b { color: var(--accent); }
+.no-menu { margin: 0; color: var(--muted); }
 .checks { display: flex; flex-wrap: wrap; gap: 6px; }
 .unverified { list-style: none; margin: 0; padding: 0; color: var(--warn); }
 .cafes { background: var(--coffee-soft); border-radius: 16px; padding: 12px 14px; display: grid; gap: 6px; }
