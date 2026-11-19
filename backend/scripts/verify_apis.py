@@ -18,7 +18,10 @@ from app.clients.kakao_local import CATEGORY_URL
 from app.clients.redtable import BASE_URL as REDTABLE_URL
 from app.clients.redtable import ENDPOINT_MENU_KOREAN, ENDPOINT_OPERATION, ENDPOINT_RESTAURANT
 from app.clients.seoul_opendata import BASE_URL as SEOUL_URL
-from app.clients.seoul_opendata import SERVICE_GANGNAM_GENERAL_RESTAURANT
+from app.clients.seoul_opendata import SERVICE_GANGNAM_GENERAL_RESTAURANT, SERVICE_GANGNAM_REST_FOOD
+from app.clients.kma import BASE_URL as KMA_URL, latlon_to_grid
+from app.tools.weather import latest_base
+from app.datasets.cache import now_kst
 from app.core.config import load_settings
 from app.core.geo import STATIONS
 
@@ -71,18 +74,30 @@ def redtable_extract(resp):
     }
 
 
-def seoul_extract(resp):
+def seoul_extract(resp, service=SERVICE_GANGNAM_GENERAL_RESTAURANT):
     text = resp.text.lstrip()
     if text.startswith("<"):
         code = re.search(r"<CODE>([^<]+)</CODE>", text)
         return {"result": "FAIL", "result_code": code.group(1) if code else None}
-    block = resp.json().get(SERVICE_GANGNAM_GENERAL_RESTAURANT, {})
+    block = resp.json().get(service, {})
     rows = block.get("row") or []
     code = (block.get("RESULT") or {}).get("CODE")
     return {
         "result": "PASS" if code == "INFO-000" else "FAIL", "result_code": code,
         "total_count": block.get("list_total_count"), "rows": len(rows), "fields": fields_of(rows[0]) if rows else [],
     }
+
+
+def kma_extract(resp):
+    text = resp.text.lstrip()
+    if text.startswith("<"):
+        return {"result": "FAIL", "note": "XML 오류 응답"}
+    data = resp.json().get("response", {})
+    header, body = data.get("header", {}), data.get("body", {})
+    items = (body.get("items") or {}).get("item") or []
+    return {"result": "PASS" if header.get("resultCode") == "00" else "FAIL", "result_code": header.get("resultCode"),
+            "total_count": body.get("totalCount"), "rows": len(items), "fields": fields_of(items[0]) if items else [],
+            "categories": sorted({i["category"] for i in items})}
 
 
 def kakao_extract(resp):
@@ -130,6 +145,33 @@ def main() -> None:
                              secrets=(s.seoul_openapi_key,), extract=seoul_extract))
     else:
         results.append(blocked(f"[서울 열린데이터광장] {svc} - 개인 키(1~1000건)", f"{SEOUL_URL}/***/json/{svc}/1/1000/", "SEOUL_OPENAPI_KEY"))
+
+    if s.seoul_openapi_key:
+        results.append(check(f"[서울 열린데이터광장] {SERVICE_GANGNAM_REST_FOOD} - 개인 키(1~5건, 보조 카페)",
+                             f"{SEOUL_URL}/{s.seoul_openapi_key}/json/{SERVICE_GANGNAM_REST_FOOD}/1/5/", secrets=(s.seoul_openapi_key,),
+                             extract=lambda r: seoul_extract(r, SERVICE_GANGNAM_REST_FOOD)))
+    else:
+        results.append(blocked(f"[서울 열린데이터광장] {SERVICE_GANGNAM_REST_FOOD}", f"{SEOUL_URL}/***/json/{SERVICE_GANGNAM_REST_FOOD}/1/5/", "SEOUL_OPENAPI_KEY"))
+
+    # 4. 기상청 단기예보
+    base = latest_base(now_kst())
+    nx, ny = latlon_to_grid(*STATIONS["강남역"])
+    kma_q = f"&pageNo=1&numOfRows=100&dataType=JSON&base_date={base:%Y%m%d}&base_time={base:%H%M}&nx={nx}&ny={ny}"
+    if s.kma_api_key:
+        results.append(check("[기상청] 단기예보 getVilageFcst (강남역 격자)", f"{KMA_URL}?serviceKey={s.kma_api_key}{kma_q}",
+                             secrets=(s.kma_api_key,), extract=kma_extract))
+    else:
+        results.append(blocked("[기상청] 단기예보 getVilageFcst", f"{KMA_URL}?serviceKey=***{kma_q}", "KMA_API_KEY"))
+
+    # 5. OpenAI (키 존재 여부만, 키가 있을 때만 모델 목록 조회)
+    if s.openai_api_key:
+        results.append(check("[OpenAI] 모델 목록", "https://api.openai.com/v1/models",
+                             headers={"Authorization": f"Bearer {s.openai_api_key}"}, secrets=(s.openai_api_key,),
+                             extract=lambda r: {"result": "PASS" if r.status_code == 200 else "FAIL"}))
+    else:
+        results.append(blocked("[OpenAI] Chat 모델", "https://api.openai.com/v1/...", "OPENAI_API_KEY"))
+    results.append({"name": "[SSAFY GMS]", "request_url": "-", "http_status": None, "result": "EXCLUDED",
+                    "note": f"GMS_API_KEY {'존재' if s.gms_api_key else '없음'} — 모델 연동은 범위 밖이라 호출하지 않음"})
 
     # 3. 카카오 로컬 API
     lat, lng = STATIONS["강남역"]

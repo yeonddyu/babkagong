@@ -1,101 +1,78 @@
-# 외부 API 실제 연결 검증 기록
+# 외부 API 실제 연결 검증 기록 (NF3007)
 
-- 검증 일시: 2026-11-18 17:16 KST
-- 검증 명령: `.venv/bin/python -m scripts.verify_apis`, `.venv/bin/python -m pytest -m integration -v -rs`
-- 검증 환경: `.env` 없음 → `REDTABLE_API_KEY`, `SEOUL_OPENAPI_KEY`, `KAKAO_REST_API_KEY` **모두 미설정**
-- 비밀키는 URL·로그·보고서에 기록하지 않는다 (`serviceKey=***`).
-
-> **요약**: 개인 키가 없어 정상 데이터 호출로 검증할 수 있었던 것은 서울 열린데이터광장 공개 `sample` 키(최대 5건) 1건뿐이다.
-> 레드테이블·카카오는 **잘못된 키에 대한 실제 거부 응답(401)** 만 확인했고, 정상 응답 검증은 **BLOCKED** 이다.
-> Mock 단위 테스트 통과를 실제 API 호출 성공으로 간주하지 않는다.
+- 최종 검증: 2026-11-19 14:40 KST (1차 기록 2026-11-18 은 키 미발급으로 대부분 BLOCKED 였음)
+- 명령: `cd backend && ../.venv/bin/python -m scripts.verify_apis`, `../.venv/bin/python -m pytest -m integration -v -rs`
+- 비밀키는 URL·로그·문서에 기록하지 않는다 (`serviceKey=***`). `scripts/check_secrets.py` 로 저장소에 키가 없음을 확인.
+- **Mock 단위 테스트 통과는 아래 실제 호출 결과와 별개다.**
 
 ## 1. 결과 요약
 
-| # | 제공처 / API | 요청 URL | HTTP | 결과 |
-|---|---|---|---|---|
-| 1 | 서울관광재단 식당기본정보 | `https://seoul.openapi.redtable.global/api/rstr?serviceKey=***&pageNo=1` | - | **BLOCKED** (키 없음) |
-| 2 | 서울관광재단 메뉴정보 한국어 | `https://seoul.openapi.redtable.global/api/menu/korean?serviceKey=***&pageNo=1` | - | **BLOCKED** (키 없음) |
-| 3 | 서울관광재단 식당운영정보 | `https://seoul.openapi.redtable.global/api/rstr/oprt?serviceKey=***&pageNo=1` | - | **BLOCKED** (키 없음) |
-| 4 | 서울관광재단 식당기본정보 (잘못된 키) | `https://seoul.openapi.redtable.global/api/rstr?serviceKey=***&pageNo=1` | 401 | PASS — `{"resultCode":"30","resultMsg":"SERVICE_KEY_IS_NOT_REGISTERED_ERROR"}` 확인, Client 가 `API_ERROR` 로 변환 |
-| 5 | 서울 열린데이터광장 `LOCALDATA_072404_GN` (공개 sample 키) | `http://openapi.seoul.go.kr:8088/sample/json/LOCALDATA_072404_GN/1/5/` | 200 | **PASS** — `INFO-000`, `list_total_count=51509`, 5행 |
-| 6 | 서울 열린데이터광장 `LOCALDATA_072404_GN` (개인 키 1~1000건) | `http://openapi.seoul.go.kr:8088/***/json/LOCALDATA_072404_GN/1/1000/` | - | **BLOCKED** (키 없음) |
-| 7 | 카카오 로컬 카테고리 검색 CE7 | `https://dapi.kakao.com/v2/local/search/category.json?category_group_code=CE7&x=127.027619&y=37.497952&radius=300&sort=distance&size=15` | - | **BLOCKED** (키 없음) |
-| 8 | 카카오 로컬 (잘못된 키) | 위와 동일, `Authorization: KakaoAK ***` | 401 | PASS — `errorType=AccessDeniedError` 확인, Client 가 `API_ERROR` 로 변환 |
+| 제공처 / API | 요청 URL (키 마스킹) | HTTP | 결과 |
+|---|---|---|---|
+| 서울관광재단 식당기본정보 | `https://seoul.openapi.redtable.global/api/rstr?serviceKey=***&pageNo=1` | 200 | **PASS** — resultCode 00, totalCount 167,659, 1,000행 |
+| 서울관광재단 메뉴정보 한국어 | `.../api/menu/korean?serviceKey=***&pageNo=1` | 200 | **PASS** — totalCount 573,965 |
+| 서울관광재단 식당운영정보 | `.../api/rstr/oprt?serviceKey=***&pageNo=1` | 200 | **PASS** — totalCount 167,659 |
+| 서울관광재단 (잘못된 키) | `.../api/rstr?serviceKey=***` | 401 | PASS — `resultCode 30 SERVICE_KEY_IS_NOT_REGISTERED_ERROR` → `API_ERROR` |
+| 서울 열린데이터광장 강남구 일반음식점 `LOCALDATA_072404_GN` | `http://openapi.seoul.go.kr:8088/***/json/LOCALDATA_072404_GN/1/1000/` | 200 | **PASS** — INFO-000, 51,509건 |
+| 서울 열린데이터광장 강남구 휴게음식점 `LOCALDATA_072405_GN` | `.../***/json/LOCALDATA_072405_GN/1/5/` | 200 | **PASS** — INFO-000, 17,555건 |
+| 기상청 단기예보 `getVilageFcst` | `https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst?serviceKey=***&...&nx=61&ny=125` | 200 | **PASS** — resultCode 00, 798건(1발표) |
+| 카카오 로컬 카테고리 검색 CE7 | `https://dapi.kakao.com/v2/local/search/category.json?category_group_code=CE7&x=127.027619&y=37.497952&radius=300` | 403 | **BLOCKED** — `NotAuthorizedError: App(밥카공) disabled OPEN_MAP_AND_LOCAL service` (키는 유효, 앱에서 카카오맵 사용 설정 필요) |
+| 카카오 (잘못된 키) | 위와 동일 | 401 | PASS — `AccessDeniedError` → `API_ERROR` |
+| OpenAI | - | - | **BLOCKED** — `OPENAI_API_KEY` 미설정. 요청 분석·응답 문장은 규칙/템플릿 경로로 동작 |
+| SSAFY GMS | - | - | **EXCLUDED** — `GMS_API_KEY` 존재 확인만, 모델 연동은 이번 범위 밖 |
 
-통합 테스트 (`pytest -m integration -v -rs`): **4 passed, 8 skipped(BLOCKED)**
+데이터 API 3종 이상 확보 조건: 서울관광재단·서울 열린데이터광장·기상청 3개 제공처가 **실제 호출로 확인됨 (충족)**. 카카오가 활성화되면 4종.
 
-| 테스트 | 결과 |
-|---|---|
-| `test_live_f3002::test_seoul_opendata_public_sample_key` | PASSED (실제 응답 정규화·좌표 변환 확인) |
-| `test_live_f3002::test_seoul_opendata_sample_key_limit_is_reported` | PASSED (6건 요청 → `ERROR-335` → `API_ERROR`) |
-| `test_live_f3002::test_redtable_invalid_key_rejected` | PASSED |
-| `test_live_f3004::test_kakao_invalid_key_rejected` | PASSED |
-| `test_live_f3002::test_seoul_opendata_personal_key` | SKIPPED — BLOCKED |
-| `test_live_f3002::test_redtable_restaurant_first_page` | SKIPPED — BLOCKED |
-| `test_live_f3002::test_search_restaurant_candidates_live` | SKIPPED — BLOCKED |
-| `test_live_f3003::test_redtable_detail_endpoints_first_page` ×2 | SKIPPED — BLOCKED |
-| `test_live_f3003::test_candidate_to_details_live` | SKIPPED — BLOCKED |
-| `test_live_f3004::test_search_nearby_cafes_live` | SKIPPED — BLOCKED |
-| `test_live_f3004::test_search_nearby_cafes_live_no_result` | SKIPPED — BLOCKED |
+통합 테스트 (`pytest -m integration -v -rs`, 2026-11-19): **13 passed, 2 skipped** — skip 2건은 카카오 403 으로 BLOCKED.
 
 ## 2. 제공처별 상세
 
 ### 2.1 서울관광재단 음식관광 데이터베이스 OPEN API (레드테이블)
-
 | 항목 | 내용 |
 |---|---|
-| 정식 명칭 | 서울관광재단_포스트코로나 이후의 관광객에게 현행화된 정보를 제공하기 위한 음식관광 데이터베이스 OPEN API |
-| 공공데이터포털 | https://www.data.go.kr/data/15097605/openapi.do (API 유형: LINK) |
-| 키 발급 | https://seoul.openapi.redtable.global → API TOKEN 발급신청 |
-| 서비스 URL | `https://seoul.openapi.redtable.global` |
-| 인증 | `serviceKey` 쿼리 파라미터 (URL Encode) |
-| 요청 파라미터 | `serviceKey`(필수), `pageNo`(선택) — **지역·식당ID 필터 없음** (정의서 기준) |
-| 사용 엔드포인트 | `/api/rstr` 식당기본정보, `/api/menu/korean` 메뉴정보 한국어, `/api/rstr/oprt` 식당운영정보 |
-| 응답 형식 | `{"header": {resultCode, resultMsg, numOfRows, pageNo, totalCount}, "body": [...]}` |
-| 주요 필드 (정의서) | 기본: `RSTR_ID, RSTR_NM, RSTR_RDNMADR, RSTR_LNNO_ADRES, RSTR_LA, RSTR_LO, RSTR_TELNO, BSNS_STATM_BZCND_NM, BSNS_LCNC_NM` / 메뉴: `MENU_ID, MENU_NM, MENU_PRICE, SPCLT_MENU_YN, RSTR_ID` / 운영: `BSNS_TM_CN, RESTDY_INFO_CN, WIFI_OFR_YN, PRKG_POS_YN, SEAT_CNT, ...` |
-| 데이터 규모 (정의서 예시) | 식당기본정보 168,155건, 메뉴정보 한국어 574,019건, 페이지당 1,000건 |
-| HTTP 상태 (정의서) | 200 성공, 400 파라미터 오류, 401 인증 오류, 404 미정의 API, 429 사용량/초당 한도 초과, 500/502 시스템 오류, 503 점검 |
-| 호출 한도 | 공공데이터포털 표기: “해당 기관의 정책에 따라 트래픽 수는 상이”. 정의서에 429(한도 초과) 정의. **구체 수치 미공개 → 키 발급 후 확인 필요** |
-| 이용 조건 | 무료, 이용허락범위 제한 없음, 개발단계 자동승인 / 운영단계 심의승인 (공공데이터포털 표기) |
-| 실제 확인 | 잘못된 키 → HTTP 401, `resultCode=30 SERVICE_KEY_IS_NOT_REGISTERED_ERROR`. 정상 응답 **미확인(BLOCKED)** |
-| 구현 대응 | 필터가 없어 전체 페이지 순회 후 강남·역삼 1.5km 데이터만 `data/cache/` 에 캐시(TTL 168h)해 호출 수를 줄임 |
+| 출처 | 공공데이터포털 https://www.data.go.kr/data/15097605/openapi.do (LINK 유형) → https://seoul.openapi.redtable.global |
+| 인증 | `serviceKey` 쿼리 파라미터 (레드테이블 토큰) — 환경변수 `REDTABLE_API_KEY` |
+| 파라미터 | `serviceKey`, `pageNo` 뿐. **지역·식당ID 필터 없음**, 페이지당 1,000건 |
+| 사용 필드 | 기본 `RSTR_ID, RSTR_NM, RSTR_RDNMADR, RSTR_LNNO_ADRES, RSTR_LA, RSTR_LO, RSTR_TELNO, BSNS_STATM_BZCND_NM, BSNS_LCNC_NM` / 메뉴 `MENU_ID, MENU_NM, MENU_PRICE, SPCLT_MENU_YN, RSTR_ID` / 운영 `BSNS_TM_CN, RESTDY_INFO_CN, WIFI_OFR_YN, PRKG_POS_YN, SEAT_CNT, ...` |
+| 실데이터 특성 | 강남·역삼 1.5km 내 식당 8,125곳 중 메뉴 등록 1,560곳, 영업시간 등록 3,450곳. 같은 메뉴 중복 행(87곳), 1원 같은 비정상 가격 존재 → 중복 제거·식사 메뉴 판정 정책 적용 |
+| 호출 한도 | 공공데이터포털 표기 "기관 정책에 따라 상이", 정의서상 429(한도 초과) 정의. 수치 미공개 |
+| 이용 조건 | 무료, 이용허락범위 제한 없음, 개발단계 자동승인 / 운영단계 심의승인 |
+| 수집 비용(실측) | 식당기본정보 168페이지 45초, 운영정보 56초, 메뉴정보 575페이지 217초 |
+| 저장·재사용 | 서비스 지역 데이터만 `backend/data/cache/*.json` 에 저장, TTL 168시간 후 재수집 (호출 최소화). 캐시는 저장소에 커밋하지 않음 |
 
-### 2.2 서울 열린데이터광장 — 강남구 일반음식점 인허가 정보
-
+### 2.2 서울 열린데이터광장 — 강남구 일반음식점·휴게음식점 인허가 정보
 | 항목 | 내용 |
 |---|---|
-| 서비스명 | `LOCALDATA_072404_GN` |
-| 키 발급 | https://data.seoul.go.kr → 인증키 신청 |
-| 요청 URL 형식 | `http://openapi.seoul.go.kr:8088/{KEY}/json/LOCALDATA_072404_GN/{START}/{END}/` |
-| 호출 한도 | 1회 최대 1,000건(구현 기준). 공개 `sample` 키는 1~5건만 허용 — 6건 요청 시 `ERROR-335` 실제 확인. 일일 한도 수치는 **미확인** |
-| 실제 응답 | HTTP 200, `RESULT.CODE=INFO-000`, `list_total_count=51509` |
-| 주요 필드 (실제 응답) | `MGTNO`(관리번호, 출처 식별자), `BPLCNM`(사업장명), `UPTAENM`(업태), `TRDSTATEGBN/TRDSTATENM`(영업상태), `APVPERMYMD`(인허가일), `DCBYMD`(폐업일), `RDNWHLADDR`(도로명주소), `SITEWHLADDR`(지번주소), `X`,`Y`(EPSG:5174 TM 좌표), `UPDATEDT` 등 39개 |
-| 오류 형식 (실제 확인) | JSON 요청이어도 HTTP 200 + XML `<RESULT><CODE>INFO-100</CODE>` (잘못된 키), `ERROR-335` (sample 범위 초과) → Client 가 XML 을 감지해 `API_ERROR` 로 변환 |
-| 좌표 | `X`,`Y` 는 EPSG:5174 로 보고 WGS84 변환. 실제 행 `삼성로 306` → (37.4994, 127.0609) 로 변환되어 위치가 일치 |
-| 이용 조건 | 서울 열린데이터광장 이용약관 및 공공누리 표시 조건 준수 (데이터셋별 공공누리 유형은 데이터셋 페이지에서 확인 필요) |
-| 한계 | 강남구 데이터만 포함 → 강남역 서측(서초구) 업소 없음. 메뉴·가격·영업시간 없음 |
+| 출처 | https://data.seoul.go.kr (원본: 공공데이터포털 지방행정 인허가정보) |
+| 요청 | `http://openapi.seoul.go.kr:8088/{KEY}/json/{SERVICE}/{START}/{END}/`, 1회 최대 1,000건 (`sample` 키는 5건) |
+| 사용 필드 | `MGTNO`(출처 식별자), `BPLCNM`, `UPTAENM`, `TRDSTATEGBN/TRDSTATENM`, `APVPERMYMD`, `DCBYMD`, `RDNWHLADDR`, `SITEWHLADDR`, `X`,`Y`(EPSG:5174 → WGS84 변환), `UPDATEDT` |
+| 오류 형식(실측) | JSON 요청에도 HTTP 200 + XML(`INFO-100` 키 오류, `ERROR-335` 범위 초과) → Client 가 감지해 `API_ERROR` |
+| 이용 조건 | 이용허락범위 제한 없음 (데이터셋 표기), 매일 갱신 |
+| 용도 | 일반음식점: 음식점 후보 보완·기준일 영업 판정 / 휴게음식점(커피숍·다방 등): 카카오 실패 시 보조 카페 |
+| 한계 | 강남구만 포함 → 강남역 서측(서초구) 업소 없음. 메뉴·가격·영업시간 없음 |
 
-### 2.3 카카오 로컬 API — 카테고리로 장소 검색
-
+### 2.3 기상청 단기예보 조회서비스
 | 항목 | 내용 |
 |---|---|
-| 요청 URL | `GET https://dapi.kakao.com/v2/local/search/category.json` |
-| 인증 | 헤더 `Authorization: KakaoAK {REST_API_KEY}` |
-| 파라미터 | `category_group_code=CE7`(카페), `x`(경도), `y`(위도), `radius`(0~20000m), `page`(1~45), `size`(1~15), `sort=distance` |
-| 응답 필드 | `meta{total_count, pageable_count, is_end}`, `documents[]{id, place_name, category_name, phone, address_name, road_address_name, x, y, place_url, distance}` |
-| 미제공 정보 | 영업시간·콘센트·와이파이·혼잡도 → Tool 에서 null 로 고정 |
-| 호출 한도 | 카카오디벨로퍼스 쿼터 정책 적용(앱 [쿼터] 메뉴에서 확인). 카카오맵 API 무료 쿼터는 계정의 첫 활성화 앱에만 제공. **로컬 API 일 한도 수치는 키 발급 후 앱 설정에서 확인 필요** |
-| 실제 확인 | 키 없음 → HTTP 401 `cannot find Authorization : KakaoAK header`, 잘못된 키 → HTTP 401 `AccessDeniedError`. 정상 응답 **미확인(BLOCKED)** |
+| 출처 | 공공데이터포털 https://www.data.go.kr/data/15084084/openapi.do |
+| 요청 | `getVilageFcst`, `serviceKey`(인코딩 키, 재인코딩 방지 위해 URL 에 직접 부착), `base_date`, `base_time`(02·05·08·11·14·17·20·23시), `nx`,`ny` (강남·역삼 = 61,125) |
+| 사용 필드 | `category`(TMP, POP, PTY, SKY, PCP, REH, WSD), `fcstDate`, `fcstTime`, `fcstValue` |
+| 호출 한도 | 개발계정 10,000건/일 (운영계정은 활용사례 등록 시 증가) |
+| 이용 조건 | 무료, **공공누리 제1유형(출처표시)** → 화면·문서에 "기상청 단기예보" 출처 표시 |
+
+### 2.4 카카오 로컬 API
+| 항목 | 내용 |
+|---|---|
+| 요청 | `GET /v2/local/search/category.json`, 헤더 `Authorization: KakaoAK {키}`, `category_group_code=CE7`, `x`,`y`,`radius`(≤20000),`page`(≤45),`size`(≤15),`sort=distance` |
+| 현재 상태 | 키는 설정되어 있으나 앱 설정에서 카카오맵 서비스 비활성 → 403. **사용자 조치 필요**: 카카오디벨로퍼스 → 내 애플리케이션 → 밥카공 → 카카오맵 사용 설정 ON |
+| 호출 한도 | 카카오디벨로퍼스 쿼터 정책(앱 [쿼터] 메뉴), 무료 월간 쿼터는 계정의 첫 활성 앱에 제공 |
+| 이용 조건 | 카카오 API 이용약관. 장소 정보는 응답 시점 결과만 표시하고 저장하지 않음 (대화 Memory 에 이름·링크 요약만) |
+
+### 2.5 OpenAI / SSAFY GMS
+- OpenAI: `OPENAI_API_KEY` 설정 시 `core/llm_provider.py` 가 ChatOpenAI(`OPENAI_MODEL`, 기본 gpt-4o-mini)를 생성. 현재 키 없음 → BLOCKED.
+- GMS: 키 존재만 확인. `AI_PROVIDER=gms` 여도 GMS 를 호출하지 않는다.
 
 ## 3. BLOCKED 해제 방법
-
-1. 각 제공처에서 키 발급 → `.env` 에 입력 (`.env.example` 참고, `.env` 는 커밋 금지)
-2. `.venv/bin/python -m scripts.verify_apis` 실행 후 이 문서의 1·2절 갱신
-3. `.venv/bin/python -m pytest -m integration -v -rs` 에서 skip 0건 확인
-4. 레드테이블 첫 실행은 식당기본정보 약 169페이지, 메뉴정보 약 575페이지를 순회하므로 시간이 걸린다. 실제 소요 시간과 429 발생 여부를 기록한다.
-
-## 4. 참고 출처
-
-- 공공데이터포털 데이터셋 페이지 및 첨부 `B161_OpenAPI정의서_레드테이블_서울관광재단.pdf`
-- 서울 열린데이터광장 OpenAPI 실제 응답 (`sample` 키)
-- 카카오디벨로퍼스 쿼터 안내: https://developers.kakao.com/docs/ko/getting-started/quota
+1. 카카오: 앱에서 카카오맵 사용 설정 → `pytest -m integration -rs` 의 skip 2건이 PASS 로 바뀌는지 확인
+2. OpenAI: `.env` 에 `OPENAI_API_KEY` 입력 → `/api/health` 의 `llm.available=true`, 응답의 `decided_by=llm` 확인
+3. 갱신 후 `scripts.verify_apis` 결과로 이 문서 1절 갱신

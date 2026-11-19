@@ -38,7 +38,7 @@
 ### 1.4 레지스트리
 
 - 위치: `app/tools/registry.py`, 기본 구성: `app/tools/catalog.py::build_default_registry()`
-- 명세 출력: `.venv/bin/python -m scripts.print_tools`
+- 명세 출력: `cd backend && ../.venv/bin/python -m scripts.print_tools`
 - LangChain 변환: `registry.as_langchain_tools()` → `StructuredTool` (args_schema = 입력 Pydantic 모델)
 - Tool 이름 규칙: 소문자 snake_case, 설명은 “언제 쓰는지” 중심으로 20자 이상
 
