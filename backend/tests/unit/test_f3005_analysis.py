@@ -140,3 +140,18 @@ def test_llm_failure_falls_back_to_rule():
 def test_condition_only_message_is_recommend():
     r = run("강남역 1만원 이하")
     assert r.intent == "recommend" and r.conditions.constraint.budget_max == 10000
+
+
+def test_llm_guard_drops_unstated_walk_preference_and_timezone():
+    from datetime import timezone, timedelta
+
+    kst = timezone(timedelta(hours=9))
+    fake = AnalysisResult(intent="recommend", reason="r", decided_by="rule", conditions=Conditions.model_validate({
+        "base": {"meal_time": time(12, 30, tzinfo=kst), "meal_period": "점심"},
+        "preference": {"area": "역삼역", "prefer_short_walk": True}}))
+    r = analyze("내일 12시 반에 역삼역에서 점심", TODAY, StubLLM(result=fake))
+    assert r.conditions.preference.prefer_short_walk is None  # 발화에 근거 없음 (실제 GMS 응답 재현)
+    assert r.conditions.base.meal_time == time(12, 30) and r.conditions.base.meal_time.tzinfo is None
+    fake2 = AnalysisResult(intent="recommend", reason="r", decided_by="rule", conditions=Conditions.model_validate({
+        "preference": {"area": "강남역", "prefer_short_walk": True}}))
+    assert analyze("강남역 많이 걷기 싫어", TODAY, StubLLM(result=fake2)).conditions.preference.prefer_short_walk is True

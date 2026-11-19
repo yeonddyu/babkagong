@@ -240,6 +240,20 @@ def _evidence_guard(result: AnalysisResult, message: str, rule: AnalysisResult) 
         c.base.visit_date = None
     if (c.base.meal_time or c.base.cafe_time) and not re.search(r"\d", message):
         c.base.meal_time = c.base.cafe_time = None
+    if c.constraint.end_by and not re.search(r"\d", message):
+        c.constraint.end_by = None
+    if c.constraint.max_walk_minutes and not re.search(r"\d", message):
+        c.constraint.max_walk_minutes = None
+    # '가까운 곳/많이 걷기 싫다' 표현이 없는데 도보 선호를 넣은 경우 제거 (실제 GMS 응답에서 확인된 문제)
+    if c.preference.prefer_short_walk and not SHORT_WALK_PATTERN.search(message):
+        c.preference.prefer_short_walk = None
+    if c.base.meal_period and c.base.meal_period not in message:
+        c.base.meal_period = rule.conditions.base.meal_period
+    # LLM 이 시각에 시간대(+09:00)를 붙여 주면 다른 시각과 비교할 수 없으므로 떼어 낸다
+    for group, name in (("base", "meal_time"), ("base", "cafe_time"), ("constraint", "end_by")):
+        value = getattr(getattr(c, group), name)
+        if value is not None and value.tzinfo is not None:
+            setattr(getattr(c, group), name, value.replace(tzinfo=None))
     return result
 
 
