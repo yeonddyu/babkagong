@@ -120,7 +120,7 @@ def closed_on(holiday_text: str, day: date) -> Result:
 
 # ---------------------------------------------------------------- 평가
 MIN_MEAL_PRICE = 3000  # 이보다 싼 메뉴는 식사 메뉴로 보지 않음 (곁들임·데이터 오류 방지, 정책값)
-SIDE_MENU = re.compile(r"추가|사리|공기밥|곱빼기|토핑|소스|음료|사이다|콜라|주류|소주|맥주|막걸리|와인|라떼|아메리카노|커피|에이드|주스|포장|세트\s*변경")
+SIDE_MENU = re.compile(r"추가|사리|공기밥|곱빼기|토핑|소스|음료|사이다|콜라|주류|소주|맥주|막걸리|와인|이과두주|고량주|사케|하이볼|칵테일|위스키|군만두|라떼|아메리카노|커피|에이드|주스|포장|세트\s*변경")
 
 
 def is_meal_menu(menu: dict[str, Any], *, ignore_price: bool = False) -> bool:
@@ -176,7 +176,7 @@ def evaluate_restaurant(
         priced = [m for m in (menus or []) if m.get("price_krw") and is_meal_menu(m)]
         within = sorted((m for m in priced if m["price_krw"] <= budget), key=lambda m: m["price_krw"])
         if within:
-            matched = within
+            matched = sorted(within, key=lambda m: -m["price_krw"])  # 예산에 가까운 대표 식사 메뉴부터 보여 줌
             checks.append(Check("예산", "pass", f"{budget:,}원 이하 메뉴 {len(within)}개 (최저 {within[0]['price_krw']:,}원)",
                                 "레드테이블 메뉴정보 가격", True))
         elif priced and len(priced) == len([m for m in (menus or []) if is_meal_menu(m, ignore_price=True)]):

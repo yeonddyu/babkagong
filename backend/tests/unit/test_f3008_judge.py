@@ -170,3 +170,11 @@ def test_same_place_registered_twice_recommended_once(make_settings):
     agent = MainAgent(make_registry(make_settings, ms(rt_rows=rows, menus=menus)), today_fn=lambda: TODAY)
     names = [e.name for e in agent.run("강남역 1만원 이하 12시 점심")["evaluation"].satisfied]
     assert names.count("김치찌개집") == 1
+
+
+def test_liquor_not_meal_and_matched_sorted_near_budget():
+    c = cond("강남역 1만 5천원 이하 점심")
+    d = detail([{"name": "이과두주", "price_krw": 5000}, {"name": "짬뽕", "price_krw": 9000}, {"name": "탕수육(소)", "price_krw": 14000},
+                {"name": "짜장면", "price_krw": 7000}])
+    e = evaluate_restaurant(CAND, d, None, c, None, THU)
+    assert [m["name"] for m in e.matched_menus] == ["탕수육(소)", "짬뽕", "짜장면"]
