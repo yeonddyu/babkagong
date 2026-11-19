@@ -250,3 +250,12 @@ def test_non_meal_places_excluded(make_settings):
     session = FakeSession().route(REDTABLE, redtable_pages(rows)).route(SEOUL, seoul_rows(SERVICE_GANGNAM_GENERAL_RESTAURANT, []))
     data = ok_data(make_registry(make_settings, session).invoke(TOOL, {"area": "강남역"}))
     assert [c["name"] for c in data["candidates"]] == ["진짜 식당"]
+
+
+def test_cafe_and_dessert_brands_excluded(make_settings):
+    """실제 데이터: 이디야(분류 '패스트푸드'), 쥬스식스('기타 휴게음식점'), 솜사탕 가게가 식사 후보로 추천된 문제."""
+    rows = [rt_row(501, "이디야(강남역지하상가점)", *NEAR, cat="패스트푸드"), rt_row(502, "쥬스식스(강남역점)", *NEAR, cat="기타 휴게음식점"),
+            rt_row(503, "앤디캔디솜사탕", *NEAR, cat="푸드트럭"), rt_row(504, "마녀떡볶이", *NEAR2, cat="분식")]
+    session = FakeSession().route(REDTABLE, redtable_pages(rows)).route(SEOUL, seoul_rows(SERVICE_GANGNAM_GENERAL_RESTAURANT, []))
+    data = ok_data(make_registry(make_settings, session).invoke(TOOL, {"area": "강남역"}))
+    assert [c["name"] for c in data["candidates"]] == ["마녀떡볶이"]
