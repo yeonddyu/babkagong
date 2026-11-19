@@ -82,3 +82,8 @@ def test_llm_message_only_when_available(make_settings):
     body = run(make_settings, "강남역 1만원 이하 12시 점심", llm=llm)
     assert body["message_by"] == "llm" and body["message"] == "LLM 이 다듬은 문장"
     assert "김치찌개집" in llm.seen[1][1]  # 확정된 JSON 만 근거로 전달
+
+
+def test_user_reported_rain_vs_forecast_notice(make_settings):
+    body = run(make_settings, "비가 오는데 강남역 점심 추천")  # 예보는 강수확률 20%
+    assert any("말씀하신 날씨(비)" in n for n in body["notices"])

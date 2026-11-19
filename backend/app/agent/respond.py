@@ -88,6 +88,19 @@ def _notices(ex: ToolExecutor | None) -> list[str]:
     return notices
 
 
+def _weather_mismatch(analysis: AnalysisResult, data: ExecutionData | None) -> list[str]:
+    said = analysis.user_reported_weather
+    if not said or not data or not data.weather:
+        return []
+    from app.agent.judge import is_rainy
+
+    w = data.weather
+    if said in ("비", "눈") and not is_rainy(w):
+        return [f"말씀하신 날씨({said})와 달리 기상청 예보는 강수확률 {w.get('precipitation_probability')}%·{w.get('precipitation_type')}예요. "
+                "가까운 곳 선호는 그대로 반영했어요."]
+    return []
+
+
 def _suggestions(conditions: Conditions) -> list[str]:
     out = []
     if conditions.constraint.budget_max:
@@ -216,7 +229,7 @@ def build_response(
         "replans": replans,
         "stop_reason": stop_reason,
         "suggestions": _suggestions(conditions) if (ev is not None and not recommendations) else [],
-        "notices": _notices(ex),
+        "notices": _notices(ex) + _weather_mismatch(analysis, data),
         "disclaimer": HEALTH_DISCLAIMER if analysis.mentions_health else None,
         "query_basis": (data.candidate_meta or {}).get("query_basis") if data else None,
     }
