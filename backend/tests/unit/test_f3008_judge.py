@@ -178,3 +178,37 @@ def test_liquor_not_meal_and_matched_sorted_near_budget():
                 {"name": "짜장면", "price_krw": 7000}])
     e = evaluate_restaurant(CAND, d, None, c, None, THU)
     assert [m["name"] for m in e.matched_menus] == ["탕수육(소)", "짬뽕", "짜장면"]
+
+
+def test_drink_only_shop_is_not_a_meal_place():
+    """실제 데이터: 버블티 가게가 점심 식당으로 추천된 문제 재현."""
+    d = detail([{"name": "딸기스무디", "price_krw": 4500}, {"name": "타로버블티", "price_krw": 4000},
+                {"name": "아메리카노(HOT)", "price_krw": 2500}])
+    e = evaluate_restaurant(CAND, d, None, cond("강남역 점심"), None, THU)
+    assert e.status == "excluded" and "식사 메뉴" in e.excluded_reason
+    e2 = evaluate_restaurant(CAND, d, None, cond("강남역 1만 2천원 이하 점심"), None, THU)
+    assert e2.status == "excluded"
+
+
+def test_coffee_names_and_one_won_items_not_meals():
+    d = detail([{"name": "카페모카", "price_krw": 3000}, {"name": "카라멜마끼아또", "price_krw": 3000},
+                {"name": "베이비슈", "price_krw": 1}, {"name": "밀크티버블티", "price_krw": 4000}])
+    assert evaluate_restaurant(CAND, d, None, cond("강남역 점심"), None, THU).status == "excluded"
+    ok = detail([{"name": "쌀국수", "price_krw": 9000}, {"name": "아메리카노", "price_krw": 2000}])
+    assert evaluate_restaurant(CAND, ok, None, cond("강남역 점심"), None, THU).status == "satisfied"
+
+
+def test_meal_names_ending_like_drinks_are_meals():
+    from app.agent.judge import is_meal_menu
+
+    for name in ("까르보나라 스파게티", "토마토 스파게티", "로제 파스타", "돈코츠라멘"):
+        assert is_meal_menu({"name": name, "price_krw": 12000}), name
+    for name in ("복숭아 아이스티", "카페모카", "초코라떼"):
+        assert not is_meal_menu({"name": name, "price_krw": 4000}), name
+
+
+def test_sauce_in_dish_name_is_meal():
+    from app.agent.judge import is_meal_menu
+
+    assert is_meal_menu({"name": "깐소중새우(칠리소스/small)", "price_krw": 18000})
+    assert not is_meal_menu({"name": "소스 추가", "price_krw": 3000})

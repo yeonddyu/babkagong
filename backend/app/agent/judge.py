@@ -120,7 +120,7 @@ def closed_on(holiday_text: str, day: date) -> Result:
 
 # ---------------------------------------------------------------- 평가
 MIN_MEAL_PRICE = 3000  # 이보다 싼 메뉴는 식사 메뉴로 보지 않음 (곁들임·데이터 오류 방지, 정책값)
-SIDE_MENU = re.compile(r"추가|사리|공기밥|곱빼기|토핑|소스|음료|사이다|콜라|주류|소주|맥주|막걸리|와인|이과두주|고량주|사케|하이볼|칵테일|위스키|군만두|라떼|아메리카노|커피|에이드|주스|포장|세트\s*변경")
+SIDE_MENU = re.compile(r"추가|사리|공기밥|곱빼기|토핑|소스\s*추가|^소스|음료|사이다|콜라|주류|소주|맥주|막걸리|와인|이과두주|고량주|사케|하이볼|칵테일|위스키|군만두|라떼|아메리카노|커피|에이드|주스|스무디|버블티|밀크티|프라페|모카|마끼아또|마키아또|카푸치노|에스프레소|녹차|홍차|초코|아이스티|빙수|아이스크림|케이크|마카롱|와플|크로플|쿠키|포장|세트\s*변경")
 
 
 def is_meal_menu(menu: dict[str, Any], *, ignore_price: bool = False) -> bool:
@@ -170,6 +170,11 @@ def evaluate_restaurant(
         warnings.append(f"상세정보 없음: {why}")
     elif not detail.get("detail_available"):
         warnings.append((detail.get("detail_unavailable") or {}).get("message", "상세정보 미제공 출처"))
+
+    # 0) 식사 장소 여부: 메뉴가 확인됐는데 음료·디저트·곁들임뿐이면 식사 후보에서 제외
+    if menus and not any(is_meal_menu(m) or (is_meal_menu(m, ignore_price=True) and not m.get("price_krw")) for m in menus):
+        checks.append(Check("식사 메뉴", "fail", f"확인된 메뉴 {len(menus)}개가 모두 음료·디저트·곁들임",
+                            "레드테이블 메뉴정보 (식사 장소가 아님)", True))
 
     # 1) 예산 (제약)
     if budget is not None:
