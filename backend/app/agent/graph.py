@@ -17,7 +17,7 @@ from app.agent.analysis import analyze
 from app.agent.conditions import AnalysisResult, Conditions
 from app.agent.execution import ExecutionData, ToolExecutor, run_cafes, run_candidates, run_details, run_weather
 from app.agent.judge import Evaluation, cafe_radius, evaluate
-from app.agent.memory import InMemoryMemoryStore, MemoryStore, build_memory, resolve_conditions
+from app.agent.memory import InMemoryMemoryStore, MemoryStore, build_memory, normalize_place_name, resolve_conditions, shown_keys, shown_names
 from app.agent.planning import CAFE_TARGETS, Plan, build_plan
 from app.agent.respond import build_response
 from app.datasets.cache import now_kst
@@ -36,6 +36,8 @@ class AgentState(TypedDict, total=False):
     conditions: Conditions
     changed_fields: list[str]
     used_previous: bool
+    exclude_keys: list[str]
+    exclude_names: list[str]
     plan: Plan
     executor: ToolExecutor
     data: ExecutionData
@@ -146,7 +148,10 @@ class MainAgent:
             changed.append("preference.area")
         state["publisher"].emit("llm_decision", stage="analyze", decision=f"intent={analysis.intent}", reason=analysis.reason,
                                 decided_by=analysis.decided_by, used_previous=used_previous)
-        return {"analysis": analysis, "conditions": conditions, "changed_fields": changed, "used_previous": used_previous}
+        more = analysis.more and used_previous
+        return {"analysis": analysis, "conditions": conditions, "changed_fields": changed, "used_previous": used_previous,
+                "exclude_keys": shown_keys(state.get("previous")) if more else [],
+                "exclude_names": shown_names(state.get("previous")) if more else []}
 
     def _after_analyze(self, state: AgentState) -> str:
         intent = state["analysis"].intent
@@ -189,6 +194,12 @@ class MainAgent:
             run_weather(ex, data, cond, area, today)
         if area not in data.areas_searched:
             run_candidates(ex, data, cond, area)
+            exclude = set(state.get("exclude_keys") or [])
+            names = set(state.get("exclude_names") or [])
+            if exclude or names:  # '더 보기': 이미 보여 준 곳(같은 이름의 중복 등록 포함)은 상세 조회·추천 대상에서 뺀다
+                kept = [c for c in data.candidates[data.detailed_count:]
+                        if f"{c['source']}:{c['source_id']}" not in exclude and normalize_place_name(c["name"]) not in names]
+                data.candidates[data.detailed_count:] = kept
         if data.candidates:
             run_details(ex, data)
             self._search_cafes(ex, data, cond, today)
@@ -258,6 +269,7 @@ class MainAgent:
             state["analysis"], state["conditions"], state.get("plan"), state.get("data"), state.get("evaluation"),
             state.get("executor"), state.get("replan_history", []), state.get("stop_reason"),
             state.get("changed_fields", []), self.llm, save_result=state.get("save_result"),
+            excluded_shown=len(state.get("exclude_keys") or []),
         )
         return {"response": body}
 
@@ -319,6 +331,7 @@ class MainAgent:
             return  # 인사·사용법 등은 직전 맥락을 유지
         try:
             self.memory.save(final["session_id"], build_memory(
-                final["conditions"], analysis.intent, final["response"]["recommendations"], previous))
+                final["conditions"], analysis.intent, final["response"]["recommendations"], previous,
+                more=bool(final.get("exclude_keys"))))
         except Exception:  # noqa: BLE001
             pass

@@ -34,7 +34,7 @@ def resolve_conditions(analysis: AnalysisResult, previous: dict[str, Any] | None
     new = analysis.conditions
     if analysis.reset or not previous or not previous.get("conditions") or analysis.intent != "recommend":
         return new, list(new.filled_fields()), False
-    use_previous = analysis.is_followup or new.preference.area is None
+    use_previous = analysis.is_followup or analysis.more or new.preference.area is None
     if not use_previous:
         return new, list(new.filled_fields()), False
     prev = Conditions.model_validate(previous["conditions"])
@@ -58,12 +58,33 @@ def summarize_recommendations(recommendations: list[dict[str, Any]]) -> list[dic
     return out
 
 
+def shown_keys(previous: dict[str, Any] | None) -> list[str]:
+    return list((previous or {}).get("shown", []))
+
+
+def shown_names(previous: dict[str, Any] | None) -> list[str]:
+    return list((previous or {}).get("shown_names", []))
+
+
+def normalize_place_name(name: str) -> str:
+    """'더 보기' 중복 판단용 (괄호 지점명·공백 제거). ID 를 연결하지 않고 목록에서만 쓴다."""
+    import re
+
+    return re.sub(r"\(.*?\)|\s", "", name).lower()
+
+
 def build_memory(conditions: Conditions, intent: str, recommendations: list[dict[str, Any]],
-                 previous: dict[str, Any] | None) -> dict[str, Any]:
+                 previous: dict[str, Any] | None, *, more: bool = False) -> dict[str, Any]:
+    keys = [f"{r['source']}:{r['source_id']}" for r in recommendations]
+    names = [normalize_place_name(r["name"]) for r in recommendations]
     memory = {
         "conditions": conditions.model_dump(mode="json"),
         "last_intent": intent,
         "recommendations": summarize_recommendations(recommendations) if recommendations else
         (previous or {}).get("recommendations", []) if intent != "recommend" else [],
+        # '더 보기' 에서 다시 추천하지 않을 곳 (식별자만 보관)
+        "shown": (shown_keys(previous) + keys) if more else keys,
+        # 같은 가게가 다른 ID 로 중복 등록된 경우도 다시 보여 주지 않도록 이름도 기록
+        "shown_names": (shown_names(previous) + names) if more else names,
     }
     return memory

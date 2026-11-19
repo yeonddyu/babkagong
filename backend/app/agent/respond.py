@@ -14,7 +14,7 @@ from typing import Any
 from app.agent.conditions import AnalysisResult, Conditions
 from app.agent.execution import ExecutionData, ToolExecutor
 from app.agent.judge import Evaluation, RestaurantEvaluation
-from app.agent.planning import Plan
+from app.agent.planning import CAFE_TARGETS, Plan
 from app.tools.nearby_cafes import WALK_BASIS, estimate_walk_minutes
 
 logger = logging.getLogger(__name__)
@@ -216,11 +216,12 @@ def build_response(
     changed_fields: list[str],
     llm: Any | None = None,
     save_result: dict[str, Any] | None = None,
+    excluded_shown: int = 0,
 ) -> dict[str, Any]:
     recs_raw = []
     if data and ev:
         by_key = {f"{c['source']}:{c['source_id']}": c for c in data.candidates}
-        for e in ev.satisfied[:3]:
+        for e in ev.satisfied[:CAFE_TARGETS]:
             detail = data.details.get(e.key) or {}
             cafe_data = data.cafes.get(e.key) or {}
             cafe_err = data.cafe_errors.get(e.key)
@@ -252,7 +253,9 @@ def build_response(
         "recommendations": recommendations,
         "excluded": [{"name": e.name, "source": e.source, "source_id": e.source_id, "reason": e.excluded_reason}
                      for e in (ev.excluded if ev else [])],
-        "criteria": (ev.criteria if ev else []) + ([f"도보 시간: {WALK_BASIS}"] if recommendations else []),
+        "criteria": (ev.criteria if ev else []) + ([f"도보 시간: {WALK_BASIS}"] if recommendations else [])
+        + ([f"더 보기: 앞서 보여 드린 {excluded_shown}곳은 제외하고 같은 조건으로 다시 찾음"] if excluded_shown else []),
+        "more": bool(excluded_shown),
         "evidence": [{"seq": c.seq, "tool": c.tool, "label": TOOL_LABEL.get(c.tool, c.tool), "ok": c.ok,
                       "error_code": c.error_code, "summary": c.summary if c.ok else CODE_NOTICE.get(c.error_code or "", "실패"),
                       "duration_ms": c.duration_ms, "reused": c.reused} for c in (ex.calls if ex else [])],

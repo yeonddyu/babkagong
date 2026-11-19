@@ -79,7 +79,7 @@ def test_llm_message_only_when_available(make_settings):
             return type("Msg", (), {"content": self.reply})()
 
     llm = StubLLM()
-    llm.reply = ("1. 김치찌개집 — 카페1 (직선 30m)\n2. 일요일휴무 백반 — 카페1 (직선 30m)\n"
+    llm.reply = ("1. 김치찌개집 — 카페1 (직선 30m)\n2. 일요일휴무 백반 — 카페1 (직선 30m)\n3. 칼국수집 — 카페1 (직선 30m)\n"
                  "카페 영업시간·콘센트·와이파이·혼잡도는 확인되지 않았어요")
     body = run(make_settings, "강남역 1만원 이하 12시 점심", llm=llm)
     assert body["message_by"] == "llm" and body["message"] == llm.reply

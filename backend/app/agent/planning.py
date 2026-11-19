@@ -15,8 +15,8 @@ from pydantic import BaseModel, Field
 from app.agent.conditions import AnalysisResult, Conditions
 
 CANDIDATE_POOL = 30  # 후보 Tool 에 요청할 최대 후보 수
-DETAIL_BATCH = 6  # 한 번에 상세정보를 조회할 후보 수
-CAFE_TARGETS = 3  # 카페를 찾을 추천 식당 수
+DETAIL_BATCH = 10  # 한 번에 상세정보를 조회할 후보 수 (캐시 사용으로 호출당 1ms 미만)
+CAFE_TARGETS = 5  # 화면에 추천하고 주변 카페를 찾을 식당 수
 CAFE_RADIUS_M = 500
 CAFE_RADIUS_SHORT_WALK_M = 300
 WEATHER_RANGE_DAYS = 3

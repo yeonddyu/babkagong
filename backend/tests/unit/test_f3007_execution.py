@@ -23,8 +23,10 @@ def test_previous_outputs_feed_next_inputs(make_settings):
     data = result["data"]
     # 후보 Tool 의 source/source_id 가 상세 Tool 입력으로 그대로 전달됨
     detail_args = [c["args"] for c in calls if c["tool"] == "get_restaurant_details"]
-    first_six = [{"source": c["source"], "source_id": c["source_id"]} for c in data.candidates[:6]]
-    assert detail_args == first_six
+    from app.agent.planning import DETAIL_BATCH
+
+    first_batch = [{"source": c["source"], "source_id": c["source_id"]} for c in data.candidates[:DETAIL_BATCH]]
+    assert detail_args == first_batch
     # 후보 좌표가 카페 Tool 입력으로 전달됨
     cafe_args = [c["args"] for c in calls if c["tool"] == "search_nearby_cafes"]
     assert cafe_args and cafe_args[0]["latitude"] == data.candidates[0]["latitude"]
@@ -56,8 +58,8 @@ def test_detail_failure_recorded_and_next_candidate_continues(make_settings):
     result = agent(make_settings, session).run("강남역 점심 추천해줘")
     data = result["data"]
     # 메뉴 API 실패는 상세 Tool 내부에서 섹션 오류로 격리되어 상세 결과는 계속 반환됨
-    assert len(data.details) == 6
-    assert all(d["menu_status"] == "error" for d in data.details.values())
+    assert len(data.details) == len(data.candidates)  # 후보 9곳 < 상세 묶음 10곳
+    assert all(d["menu_status"] == "error" for d in data.details.values() if d["source"] == "seoul_tourism_redtable")
 
 
 def test_no_tool_request_calls_nothing(make_settings):

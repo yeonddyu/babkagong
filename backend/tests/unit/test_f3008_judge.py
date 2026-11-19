@@ -128,13 +128,13 @@ def test_agent_judge_with_budget(make_settings):
     agent = MainAgent(make_registry(make_settings, make_session()), today_fn=lambda: TODAY)
     result = agent.run("강남역에서 1만원 이하로 12시 점심")
     ev = result["evaluation"]
-    assert [e.name for e in ev.satisfied] == ["김치찌개집", "일요일휴무 백반"]
+    assert [e.name for e in ev.satisfied] == ["김치찌개집", "일요일휴무 백반", "칼국수집"]
     reasons = {e.name: e.excluded_reason for e in ev.excluded}
     assert "최저가" in reasons["스시하우스"] and "판단 불가" in reasons["가격미상 국밥"]
     assert any("예산" in c for c in ev.criteria)
     # 카페는 충족한 식당만 찾음
     cafe_targets = {(c["args"]["latitude"]) for c in result["tool_calls"] if c["tool"] == "search_nearby_cafes"}
-    assert len(cafe_targets) == 2
+    assert len(cafe_targets) == 3
 
 
 @pytest.mark.parametrize("text, wd, at, expected", [

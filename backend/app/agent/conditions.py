@@ -68,6 +68,7 @@ class AnalysisResult(BaseModel):
     decided_by: Literal["llm", "rule"]
     conditions: Conditions = Field(default_factory=Conditions, description="이번 발화에서 명시된 조건만")
     is_followup: bool = Field(default=False, description="직전 조건을 이어받는 후속 요청인지")
+    more: bool = Field(default=False, description="같은 조건으로 이미 보여 준 곳 말고 다른 곳을 더 보여 달라는 요청")
     reset: bool = Field(default=False, description="이전 맥락을 버리고 새로 시작")
     mentions_health: bool = Field(default=False, description="알레르기·질환 등 건강 관련 언급")
     user_reported_weather: str | None = Field(default=None, description="사용자가 말한 날씨 (참고용, 판단은 기상청 값 사용)")

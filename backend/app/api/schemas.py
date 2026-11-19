@@ -58,6 +58,7 @@ class ChatResponse(BaseModel):
     query_basis: dict[str, Any] | None
     saved_plan: dict[str, Any] | None
     plan_conflicts: list[dict[str, Any]]
+    more: bool = Field(default=False, description="'더 보기' 요청으로 앞서 보여 준 곳을 제외한 결과인지")
     events: list[ChatEvent] = Field(description="이번 실행의 이벤트 (실행 순서)")
     elapsed_ms: int
 

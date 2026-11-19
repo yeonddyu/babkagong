@@ -28,8 +28,8 @@ def test_no_replan_when_satisfied(make_settings):
 
 
 def test_replan_next_batch_reuses_results(make_settings):
-    # 앞쪽 6곳은 메뉴가 없고 7·8번째만 9천원 메뉴가 있는 상황 → 1회 재계획으로 다음 묶음 조회
-    rows = [rt_row(100 + i, f"메뉴없음{i}", 37.4981 + i * 0.0001, 127.0277) for i in range(6)] + GANGNAM[6:]
+    # 앞쪽 10곳(첫 상세 묶음)은 메뉴가 없고 그다음 곳들만 메뉴가 있는 상황 → 1회 재계획으로 다음 묶음 조회
+    rows = [rt_row(100 + i, f"메뉴없음{i}", 37.49795 + i * 0.00002, 127.02762) for i in range(10)] + GANGNAM[6:]
     session = make_session(rt_rows=rows)
     r = agent(make_settings, session).run("강남역 1만 1천원 이하 점심")
     assert [h["strategy"] for h in r["replans"]] == ["next_batch"]
@@ -37,8 +37,8 @@ def test_replan_next_batch_reuses_results(make_settings):
     calls = fresh_calls(r)
     assert all(n == 1 for n in Counter(calls).values())  # 같은 Tool·같은 입력 재호출 없음
     assert sum(1 for t, _ in calls if t == "search_restaurant_candidates") == 1
-    # 레드테이블 8곳 + 인허가 보충 1곳 = 9곳, 각 1회씩만 조회
-    assert sum(1 for t, _ in calls if t == "get_restaurant_details") == 9
+    # 레드테이블 12곳 + 인허가 보충 1곳 = 13곳, 각 1회씩만 조회
+    assert sum(1 for t, _ in calls if t == "get_restaurant_details") == 13
 
 
 def test_replan_adjacent_area(make_settings):

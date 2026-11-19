@@ -29,6 +29,7 @@ RECOMMEND_WORDS = ("추천", "먹", "점심", "저녁", "아침", "식사", "카
 GREETING_WORDS = ("안녕", "하이", "hello", "hi", "반가", "고마워", "감사", "ㅎㅇ")
 HELP_WORDS = ("사용법", "어떻게 써", "어떻게 사용", "뭘 할 수", "무엇을 할 수", "도움말", "기능이 뭐", "뭐 할 수")
 SAVE_WORDS = ("저장", "등록해", "담아")
+MORE_PATTERN = re.compile(r"(?:다른|딴)\s*(?:곳|데|식당|코스)\s*(?:도\s*)?더|더\s*(?:보여|추천|알려|찾아|없|있)|추가\s*(?:로\s*)?추천|더\s*보기")
 FOLLOWUP_WORDS = ("같은 조건", "그대로", "말고", "바꿔", "대신", "다른 곳", "다른 데", "다른 식당", "다른 카페", "이번엔", "그럼")
 RESET_WORDS = ("처음부터", "새로 추천", "초기화", "새로 시작", "리셋")
 SHORT_WALK_PATTERN = re.compile(r"걷기\s*(?:는|도|가)?\s*싫|많이\s*(?:안|못)\s*걷|조금만\s*걷|가까운|가깝게|멀지\s*않|안\s*먼|근처로")
@@ -169,6 +170,8 @@ def rule_analyze(message: str, today: date) -> AnalysisResult:
         intent, reason = "save_plan", "저장 요청 표현('저장' + 코스/계획)이 있어 직전 추천을 계획으로 저장하는 요청으로 판단"
     elif any(w in text for w in HELP_WORDS):
         intent, reason = "help", "사용법·기능 질문 표현이 있어 Tool 호출이 필요 없는 안내 요청으로 판단"
+    elif MORE_PATTERN.search(text) and not reset:
+        intent, reason = "recommend", "이미 보여 준 곳 말고 더 보여 달라는 표현이 있어 같은 조건의 다음 후보 요청으로 판단"
     elif has_reco:
         intent, reason = "recommend", "식사·카공·추천 관련 표현이 있어 음식점·카페 추천 요청으로 판단"
     elif any(w in low for w in GREETING_WORDS):
@@ -208,7 +211,8 @@ def rule_analyze(message: str, today: date) -> AnalysisResult:
     weather = next((label for label, words in WEATHER_WORDS.items() if any(w in text for w in words)), None)
     return AnalysisResult(
         intent=intent, reason=reason, decided_by="rule", conditions=c,
-        is_followup=any(w in text for w in FOLLOWUP_WORDS) and not reset,
+        is_followup=(any(w in text for w in FOLLOWUP_WORDS) or bool(MORE_PATTERN.search(text))) and not reset,
+        more=bool(MORE_PATTERN.search(text)) and not reset,
         reset=reset, mentions_health=any(w in text for w in HEALTH_WORDS),
         user_reported_weather=weather,
     )
@@ -263,17 +267,28 @@ def _evidence_guard(result: AnalysisResult, message: str, rule: AnalysisResult) 
     return result
 
 
+def _apply_more(result: AnalysisResult, rule: AnalysisResult) -> AnalysisResult:
+    """'더 보여줘' 는 규칙으로 판단한다 (LLM 결과와 무관하게 같은 조건의 다음 후보 요청)."""
+    if rule.more:
+        result.more = True
+        result.is_followup = True
+        if result.intent not in ("save_plan",):
+            result.intent = "recommend"
+            result.reason = "이미 보여 준 곳 말고 더 보여 달라는 표현이 있어 같은 조건의 다음 후보 요청으로 판단"
+    return result
+
+
 def analyze(message: str, today: date, llm: Any | None = None) -> AnalysisResult:
     rule = rule_analyze(message, today)
     if llm is None:
-        return rule
+        return _apply_more(rule, rule)
     try:
         structured = llm.with_structured_output(AnalysisResult)
         prompt = LLM_SYSTEM.format(today=today.isoformat(), weekday=WEEKDAYS[today.weekday()])
         result: AnalysisResult = structured.invoke([("system", prompt), ("human", message)])
         result.decided_by = "llm"
-        return _evidence_guard(result, message, rule)
+        return _apply_more(_evidence_guard(result, message, rule), rule)
     except Exception as exc:  # noqa: BLE001 - LLM 실패 시 규칙 분석으로 대체
         logger.warning("LLM 분석 실패, 규칙 분석으로 대체: %s", type(exc).__name__)
         rule.reason = f"LLM 분석 실패({type(exc).__name__})로 규칙 분석 사용: " + rule.reason
-        return rule
+        return _apply_more(rule, rule)

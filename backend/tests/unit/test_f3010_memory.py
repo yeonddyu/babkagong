@@ -55,7 +55,8 @@ def test_memory_keeps_summary_not_raw_responses(make_settings):
     a = agent(make_settings, store)
     a.run("강남역 1만원 이하 12시 점심 추천", session_id="m")
     mem = store.load("m")
-    assert set(mem) == {"conditions", "last_intent", "recommendations"}
+    assert set(mem) == {"conditions", "last_intent", "recommendations", "shown", "shown_names"}
+    assert all(":" in k for k in mem["shown"])  # 출처:식별자만 보관
     rec = mem["recommendations"][0]
     assert set(rec) == {"restaurant", "menus", "business_hours", "cafes"}
     raw = json.dumps(mem, ensure_ascii=False)
