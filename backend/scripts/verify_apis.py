@@ -163,15 +163,27 @@ def main() -> None:
     else:
         results.append(blocked("[기상청] 단기예보 getVilageFcst", f"{KMA_URL}?serviceKey=***{kma_q}", "KMA_API_KEY"))
 
-    # 5. OpenAI (키 존재 여부만, 키가 있을 때만 모델 목록 조회)
-    if s.openai_api_key:
-        results.append(check("[OpenAI] 모델 목록", "https://api.openai.com/v1/models",
-                             headers={"Authorization": f"Bearer {s.openai_api_key}"}, secrets=(s.openai_api_key,),
-                             extract=lambda r: {"result": "PASS" if r.status_code == 200 else "FAIL"}))
+    # 5. LLM — SSAFY GMS (OpenAI 호환 프록시, 기본 제공자)
+    from app.core.config import DEFAULT_LLM_MODEL
+    gms_model = s.gms_model or DEFAULT_LLM_MODEL
+    if s.gms_api_key:
+        def gms_extract(r):
+            ok = r.status_code == 200
+            data = r.json() if ok else {}
+            return {"result": "PASS" if ok else "FAIL", "model": data.get("model"),
+                    "rows": len(data.get("choices", [])), "fields": fields_of(data)}
+        url = s.gms_base_url.rstrip("/") + "/chat/completions"
+        try:
+            resp = requests.post(url, headers={"Authorization": f"Bearer {s.gms_api_key}"}, timeout=TIMEOUT,
+                                 json={"model": gms_model, "messages": [{"role": "user", "content": "ping"}], "max_tokens": 5})
+            results.append({"name": f"[SSAFY GMS] chat/completions ({gms_model})", "request_url": mask(url, s.gms_api_key),
+                            "http_status": resp.status_code, **gms_extract(resp)})
+        except requests.RequestException as exc:
+            results.append({"name": "[SSAFY GMS] chat/completions", "result": "FAIL", "note": type(exc).__name__})
     else:
-        results.append(blocked("[OpenAI] Chat 모델", "https://api.openai.com/v1/...", "OPENAI_API_KEY"))
-    results.append({"name": "[SSAFY GMS]", "request_url": "-", "http_status": None, "result": "EXCLUDED",
-                    "note": f"GMS_API_KEY {'존재' if s.gms_api_key else '없음'} — 모델 연동은 범위 밖이라 호출하지 않음"})
+        results.append(blocked("[SSAFY GMS] chat/completions", "https://gms.ssafy.io/gmsapi/api.openai.com/v1/chat/completions", "GMS_API_KEY"))
+    results.append({"name": "[OpenAI 직접]", "request_url": "-", "http_status": None, "result": "NOT_USED",
+                    "note": "AI_PROVIDER=gms 이므로 사용하지 않음 (OPENAI_API_KEY " + ("있음" if s.openai_api_key else "없음") + ")"})
 
     # 3. 카카오 로컬 API
     lat, lng = STATIONS["강남역"]
