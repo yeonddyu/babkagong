@@ -7,8 +7,13 @@ from typing import Any
 from sqlalchemy import JSON, DateTime, Integer, String, delete, func, select
 from sqlalchemy.orm import Mapped, mapped_column, sessionmaker
 
+from app.datasets.cache import KST
 from app.events.bus import Event
 from app.storage.db import Base
+
+
+def _aware(v: datetime) -> datetime:
+    return v.replace(tzinfo=KST) if v.tzinfo is None else v  # SQLite 는 시간대를 저장하지 않음 (항상 KST)
 
 
 class ExecutionLog(Base):
@@ -26,7 +31,7 @@ class ExecutionLog(Base):
     def to_dict(self) -> dict[str, Any]:
         return {"id": self.id, "session_id": self.session_id, "run_id": self.run_id, "seq": self.seq,
                 "type": self.event_type, "stage": self.stage, "payload": self.payload,
-                "timestamp": self.created_at.isoformat()}
+                "timestamp": _aware(self.created_at).isoformat(timespec="milliseconds")}
 
 
 class LogRepository:
@@ -52,7 +57,7 @@ class LogRepository:
                     select(ExecutionLog.payload).where(ExecutionLog.session_id == sid, ExecutionLog.event_type == "run_start")
                     .order_by(ExecutionLog.id).limit(1)).scalar()
                 out.append({"session_id": sid, "event_count": events, "run_count": runs,
-                            "first_at": first.isoformat(), "last_at": last.isoformat(),
+                            "first_at": _aware(first).isoformat(), "last_at": _aware(last).isoformat(),
                             "first_message": (first_msg or {}).get("message")})
             return out
 

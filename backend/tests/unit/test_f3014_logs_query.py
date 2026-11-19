@@ -57,3 +57,10 @@ def test_no_update_capability():
     public = {name for name in dir(LogRepository) if not name.startswith("_")}
     assert public == {"append", "list_sessions", "get_session", "delete_session"}
     assert not any(w in name for name in public for w in ("update", "edit", "modify", "set"))
+
+
+def test_timestamps_keep_kst(setup):
+    repo, agent = setup
+    r = agent.run("안녕", session_id="tz")
+    assert repo.get_session("tz")[0]["timestamp"] == r["events"][0]["timestamp"]
+    assert repo.list_sessions()[0]["first_at"].endswith("+09:00")

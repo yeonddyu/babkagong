@@ -7,11 +7,11 @@ from __future__ import annotations
 from datetime import date, datetime, time
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from sqlalchemy import Date, DateTime, Integer, String, Text, Time, select
 from sqlalchemy.orm import Mapped, mapped_column, sessionmaker
 
-from app.datasets.cache import now_kst
+from app.datasets.cache import KST, now_kst
 from app.storage.db import Base
 
 
@@ -86,6 +86,11 @@ class PlanOut(PlanBase):
     id: int
     created_at: datetime
     updated_at: datetime
+
+    @field_validator("created_at", "updated_at")
+    @classmethod
+    def _kst(cls, v: datetime) -> datetime:
+        return v.replace(tzinfo=KST) if v.tzinfo is None else v  # SQLite 는 시간대를 저장하지 않음 (항상 KST 로 저장)
 
 
 class ConflictOut(BaseModel):
