@@ -161,7 +161,8 @@ def _food(text: str) -> tuple[str | None, list[str]]:
 def rule_analyze(message: str, today: date) -> AnalysisResult:
     text = message.strip()
     low = text.lower()
-    has_reco = any(w in text for w in RECOMMEND_WORDS) or any(any(w in text for w in ws) for ws in FOOD_KEYWORDS.values())
+    has_reco = (any(w in text for w in RECOMMEND_WORDS) or any(any(w in text for w in ws) for ws in FOOD_KEYWORDS.values())
+                or "강남" in text or "역삼" in text or parse_budget(text) is not None)
     reset = any(w in text for w in RESET_WORDS)
 
     if any(w in text for w in SAVE_WORDS) and any(w in text for w in ("코스", "계획", "이거", "이걸", "그거", "일정", "추천")):

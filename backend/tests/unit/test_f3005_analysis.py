@@ -135,3 +135,8 @@ def test_llm_failure_falls_back_to_rule():
     r = analyze("강남역 점심 추천", TODAY, StubLLM(error=TimeoutError()))
     assert r.decided_by == "rule" and "LLM 분석 실패" in r.reason
     assert r.conditions.preference.area == "강남역"
+
+
+def test_condition_only_message_is_recommend():
+    r = run("강남역 1만원 이하")
+    assert r.intent == "recommend" and r.conditions.constraint.budget_max == 10000
