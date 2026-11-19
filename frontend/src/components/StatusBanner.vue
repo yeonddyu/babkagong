@@ -9,7 +9,6 @@ const LABEL: Record<string, string> = {
   SEOUL_OPENAPI_KEY: '서울 열린데이터광장(인허가·보조 카페)',
   KAKAO_REST_API_KEY: '카카오 로컬(카페 검색)',
   KMA_API_KEY: '기상청 날씨',
-  OPENAI_API_KEY: 'OpenAI(문장 분석·생성)',
 }
 
 const health = ref<Health | null>(null)
@@ -28,8 +27,12 @@ onMounted(async () => {
 
 <template>
   <div v-if="down" class="notice bad small">서버에 연결할 수 없어요. 백엔드가 실행 중인지 확인해 주세요.</div>
-  <div v-else-if="missing.length" class="notice warn small" role="status">
-    API 키가 설정되지 않은 기능: {{ missing.join(', ') }} — 해당 정보는 확인하지 못한 채로 추천해요.
-    <span v-if="health && !health.llm.available"> (요청 분석은 규칙 기반으로 처리)</span>
-  </div>
+  <template v-else-if="health">
+    <div v-if="missing.length" class="notice warn small" role="status">
+      API 키가 설정되지 않은 기능: {{ missing.join(', ') }} — 해당 정보는 확인하지 못한 채로 추천해요.
+    </div>
+    <div v-if="!health.llm.available" class="notice warn small" role="status">
+      AI 모델({{ health.llm.provider.toUpperCase() }})을 사용할 수 없어 요청 분석과 응답 문장은 규칙 기반으로 처리해요.
+    </div>
+  </template>
 </template>

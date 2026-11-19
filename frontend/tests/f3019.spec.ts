@@ -61,13 +61,24 @@ describe('StatusBanner', () => {
   it('키가 없는 기능만 이름으로 안내하고 키 값은 표시하지 않는다', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, json: async () => ({
       status: 'ok', api_keys: { REDTABLE_API_KEY: true, KAKAO_REST_API_KEY: false, OPENAI_API_KEY: false },
-      llm: { available: false }, tools: [], max_replans: 3 }) })))
+      llm: { available: false, provider: 'gms' }, tools: [], max_replans: 3 }) })))
     const w = mount(StatusBanner)
     await flushPromises()
     expect(w.text()).toContain('카카오 로컬(카페 검색)')
-    expect(w.text()).toContain('OpenAI')
     expect(w.text()).not.toContain('서울관광재단')
+    expect(w.text()).not.toContain('OpenAI')
+    expect(w.text()).toContain('AI 모델(GMS)')
     expect(w.text()).toContain('규칙 기반')
+  })
+
+  it('GMS 로 LLM 을 쓸 수 있으면 OPENAI_API_KEY 가 없어도 경고하지 않는다', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, json: async () => ({
+      status: 'ok', api_keys: { REDTABLE_API_KEY: true, KAKAO_REST_API_KEY: true, KMA_API_KEY: true, SEOUL_OPENAPI_KEY: true,
+                                OPENAI_API_KEY: false, GMS_API_KEY: true },
+      llm: { available: true, provider: 'gms' }, tools: [], max_replans: 3 }) })))
+    const w = mount(StatusBanner)
+    await flushPromises()
+    expect(w.find('.notice').exists()).toBe(false)
   })
 
   it('서버 연결 실패를 안내한다', async () => {
