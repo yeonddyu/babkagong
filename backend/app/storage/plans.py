@@ -136,6 +136,28 @@ class PlanRepository:
                 raise PlanNotFound(plan_id)
             return PlanOut.model_validate(row)
 
+    def update(self, plan_id: int, changes: PlanUpdate) -> tuple[PlanOut, list[ConflictOut]]:
+        """보낸 필드만 수정. 수정 후 시간이 겹치는 다른 계획을 함께 반환 (수정은 막지 않음)."""
+        patch = changes.model_dump(exclude_unset=True)
+        with self._sf() as s, s.begin():
+            row = s.get(PlanRow, plan_id)
+            if row is None:
+                raise PlanNotFound(plan_id)
+            merged = PlanBase.model_validate({**PlanOut.model_validate(row).model_dump(), **patch})  # 시각 검증
+            for key in patch:
+                setattr(row, key, getattr(merged, key))
+            row.updated_at = self._clock()
+            s.flush()
+            conflicts = self._conflicts(s, row.plan_date, row.start_time, row.end_time, exclude_id=row.id)
+            return PlanOut.model_validate(row), conflicts
+
+    def delete(self, plan_id: int) -> None:
+        with self._sf() as s, s.begin():
+            row = s.get(PlanRow, plan_id)
+            if row is None:
+                raise PlanNotFound(plan_id)
+            s.delete(row)
+
     def conflicts_of(self, plan: PlanOut) -> list[ConflictOut]:
         with self._sf() as s:
             return self._conflicts(s, plan.plan_date, plan.start_time, plan.end_time, exclude_id=plan.id)
