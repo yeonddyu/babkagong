@@ -1,10 +1,10 @@
-"""F3013 실행 로그 저장소. 수정 기능은 두지 않는다."""
+"""F3013·F3014 실행 로그 저장소. 추가·조회·삭제만 제공하고 수정 기능은 두지 않는다."""
 from __future__ import annotations
 
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, Integer, String, select
+from sqlalchemy import JSON, DateTime, Integer, String, delete, func, select
 from sqlalchemy.orm import Mapped, mapped_column, sessionmaker
 
 from app.events.bus import Event
@@ -39,8 +39,29 @@ class LogRepository:
                                stage=event.stage, payload=event.payload,
                                created_at=datetime.fromisoformat(event.timestamp)))
 
+    def list_sessions(self) -> list[dict[str, Any]]:
+        with self._sf() as s:
+            rows = s.execute(
+                select(ExecutionLog.session_id, func.count(ExecutionLog.id), func.count(func.distinct(ExecutionLog.run_id)),
+                       func.min(ExecutionLog.created_at), func.max(ExecutionLog.created_at))
+                .group_by(ExecutionLog.session_id).order_by(func.max(ExecutionLog.created_at).desc())
+            ).all()
+            out = []
+            for sid, events, runs, first, last in rows:
+                first_msg = s.execute(
+                    select(ExecutionLog.payload).where(ExecutionLog.session_id == sid, ExecutionLog.event_type == "run_start")
+                    .order_by(ExecutionLog.id).limit(1)).scalar()
+                out.append({"session_id": sid, "event_count": events, "run_count": runs,
+                            "first_at": first.isoformat(), "last_at": last.isoformat(),
+                            "first_message": (first_msg or {}).get("message")})
+            return out
+
     def get_session(self, session_id: str) -> list[dict[str, Any]]:
         """저장된 순서(= 실행 순서)대로 반환."""
         with self._sf() as s:
             rows = s.scalars(select(ExecutionLog).where(ExecutionLog.session_id == session_id).order_by(ExecutionLog.id)).all()
             return [r.to_dict() for r in rows]
+
+    def delete_session(self, session_id: str) -> int:
+        with self._sf() as s, s.begin():
+            return s.execute(delete(ExecutionLog).where(ExecutionLog.session_id == session_id)).rowcount or 0
