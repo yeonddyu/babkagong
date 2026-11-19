@@ -93,3 +93,16 @@ def test_llm_message_only_when_available(make_settings):
 def test_user_reported_rain_vs_forecast_notice(make_settings):
     body = run(make_settings, "비가 오는데 강남역 점심 추천")  # 예보는 강수확률 20%
     assert any("말씀하신 날씨(비)" in n for n in body["notices"])
+
+
+def test_sample_menus_without_budget(make_settings):
+    """예산을 말하지 않아도 가격이 확인된 식사 메뉴를 대표 메뉴로 제공 (메뉴 룰렛이 사라진 문제)."""
+    body = run(make_settings, "강남역 12시 점심 추천")
+    rec = next(r for r in body["recommendations"] if r["name"] == "김치찌개집")
+    assert rec["matched_menus"] == []  # 예산 조건이 없으니 '예산 내 메뉴'는 없음
+    assert rec["sample_menus"] == [{"name": "김치찌개", "price_krw": 9000}, {"name": "제육볶음", "price_krw": 11000}]
+    # 모든 대표 메뉴는 원본에서 가격이 확인된 식사 메뉴뿐 (없으면 빈 목록, 만들지 않음)
+    from tests.unit.agent_fixtures import MENUS
+
+    real = {(n, p) for _, n, p in MENUS}
+    assert all((m["name"], m["price_krw"]) in real for r in body["recommendations"] for m in r["sample_menus"])

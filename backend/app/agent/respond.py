@@ -13,7 +13,7 @@ from typing import Any
 
 from app.agent.conditions import AnalysisResult, Conditions
 from app.agent.execution import ExecutionData, ToolExecutor
-from app.agent.judge import Evaluation, RestaurantEvaluation
+from app.agent.judge import Evaluation, RestaurantEvaluation, is_meal_menu
 from app.agent.planning import CAFE_TARGETS, Plan
 from app.tools.nearby_cafes import WALK_BASIS, estimate_walk_minutes
 
@@ -62,11 +62,18 @@ def _restaurant_view(rec: dict[str, Any]) -> dict[str, Any]:
         "distance_m": r.get("distance_m"), "distance_basis": "역 중심 직선거리",
         "estimated_walk_minutes": walk,
         "matched_menus": [{"name": m["name"], "price_krw": m.get("price_krw")} for m in rec["matched_menus"]],
+        "sample_menus": rec.get("sample_menus", []),
         "business_hours": rec.get("business_hours"),
         "checks": [asdict(c) for c in e.checks],
         "score": e.score, "score_reasons": e.score_reasons,
         "unverified": e.warnings,
     }
+
+
+def _sample_menus(detail: dict[str, Any], limit: int = 5) -> list[dict[str, Any]]:
+    """예산 조건과 무관하게, 가격이 확인된 식사 메뉴 (카드의 대표 메뉴·메뉴 룰렛용). 음료·곁들임 제외."""
+    menus = [m for m in (detail.get("menus") or []) if m.get("price_krw") and is_meal_menu(m)]
+    return [{"name": m["name"], "price_krw": m["price_krw"]} for m in menus[:limit]]
 
 
 def _cafe_view(c: dict[str, Any]) -> dict[str, Any]:
@@ -227,6 +234,7 @@ def build_response(
             cafe_err = data.cafe_errors.get(e.key)
             recs_raw.append({
                 "restaurant": by_key[e.key], "evaluation": e, "matched_menus": e.matched_menus,
+                "sample_menus": _sample_menus(detail),
                 "business_hours": (detail.get("operation") or {}).get("business_hours"),
                 "cafes": cafe_data.get("cafes", []),
                 "cafe_notice": (f"주변 카페: {CODE_NOTICE.get(cafe_err['code'], '확인하지 못했습니다')}" if cafe_err else None),
