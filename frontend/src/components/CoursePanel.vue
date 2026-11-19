@@ -1,5 +1,6 @@
 <script setup lang="ts">
 // 오른쪽 패널: 가장 최근 추천 결과의 코스(식당+카페)를 보여 준다. 대화 기록과 분리해 같은 목록을 두 번 쓰지 않는다.
+import CourseTimeline from './CourseTimeline.vue'
 import MapPanel from './MapPanel.vue'
 import RecommendationCard from './RecommendationCard.vue'
 import type { ChatResponse } from '../types'
@@ -18,6 +19,8 @@ defineEmits<{ select: [index: number]; save: [index: number] }>()
     <template v-else>
       <MapPanel v-if="result.recommendations.length" :recommendations="result.recommendations" :selected="selected"
                 @select="$emit('select', $event)" />
+      <CourseTimeline v-if="result.recommendations[selected]" :rec="result.recommendations[selected]!" :index="selected"
+                      :conditions="result.conditions" />
       <div v-if="!result.recommendations.length" class="empty card">
         <p class="empty-title">조건에 맞는 코스를 찾지 못했어요</p>
         <p v-if="result.stop_reason" class="small">{{ result.stop_reason }}</p>
