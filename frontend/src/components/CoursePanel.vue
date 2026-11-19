@@ -9,10 +9,22 @@ import { chooseCafe, courseState, focusPlace, selectCourse } from '../stores/cou
 import type { ChatResponse } from '../types'
 
 defineProps<{ result: ChatResponse | null; selected: number; savingIndex: number | null; busy: boolean }>()
-const emit = defineEmits<{ select: [index: number]; save: [index: number]; more: [] }>()
+const emit = defineEmits<{ select: [index: number]; save: [index: number]; more: []; showMap: [] }>()
 function select(i: number) {
   selectCourse(i)
   emit('select', i)
+}
+// 룰렛 결과를 기존 추천 코스로 연결: 그 코스를 고르고 지도에서 식당 정보 카드를 연다
+function pickFromRoulette(i: number) {
+  select(i)
+  focusPlace({ kind: 'meal', course: i, cafe: courseState.cafeChoice[i] ?? 0 })
+}
+function locate(i: number) {
+  pickFromRoulette(i)
+  emit('showMap')
+  // 지도가 화면 밖이면 지도로 스크롤 (움직임 줄이기 설정이면 즉시 이동)
+  const smooth = !(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
+  document.querySelector('.map-card')?.scrollIntoView?.({ behavior: smooth ? 'smooth' : 'auto', block: 'start' })
 }
 </script>
 
@@ -48,7 +60,7 @@ function select(i: number) {
       <button v-if="result.recommendations.length" class="btn more-btn" :disabled="busy" @click="$emit('more')">
         {{ busy ? '찾는 중…' : '다른 곳 더 보기' }}
       </button>
-      <MenuRoulette :recommendations="result.recommendations" @select="select" />
+      <MenuRoulette :recommendations="result.recommendations" @select="pickFromRoulette" @locate="locate" />
       <details v-if="result.criteria.length || result.excluded.length" class="card small basis">
         <summary>판단 기준과 제외한 후보 ({{ result.excluded.length }})</summary>
         <ul><li v-for="c in result.criteria" :key="c">{{ c }}</li></ul>

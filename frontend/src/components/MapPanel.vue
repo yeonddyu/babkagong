@@ -321,7 +321,7 @@ const fallbackLine = computed(() => {
 </template>
 
 <style scoped>
-.map-card { background: var(--paper); border: 1px solid var(--line); border-radius: 26px; overflow: hidden; display: flex; flex-direction: column; }
+.map-card { background: var(--paper); border: 1px solid var(--line); border-radius: 26px; overflow: hidden; display: flex; flex-direction: column; scroll-margin-top: 80px; }
 .stage { position: relative; }
 .kakao-map { width: 100%; height: var(--map-h, 340px); }
 .mini-map { display: block; width: 100%; height: auto; background: #fbf6ec; }

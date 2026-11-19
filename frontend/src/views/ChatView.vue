@@ -161,7 +161,7 @@ async function scroll() {
 
     <aside class="side">
       <CoursePanel :result="latest" :selected="selected" :saving-index="savingIndex" :busy="busy"
-                   @select="selectCourse" @save="saveCourse" @more="send('다른 곳 더 보여줘')" />
+                   @select="selectCourse" @save="saveCourse" @more="send('다른 곳 더 보여줘')" @show-map="mobileTab = 'course'" />
     </aside>
   </div>
 </template>
