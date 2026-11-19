@@ -204,3 +204,8 @@ def test_restaurant_to_cafe_flow(make_settings):
     cafes = reg.invoke(TOOL, {"latitude": cand["latitude"], "longitude": cand["longitude"]})
     fail(cafes, "TIMEOUT")
     assert reg.invoke("search_restaurant_candidates", {"area": "강남역"})["ok"] is True
+
+
+def test_kakao_error_not_hidden_when_fallback_empty(make_settings):
+    sess = with_rest_food(FakeSession().route(KAKAO, lambda *a: FakeResponse(500, "x")), rows=[])
+    fail(registry(make_settings, sess).invoke(TOOL, ARGS), "API_ERROR")

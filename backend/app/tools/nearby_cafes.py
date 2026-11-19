@@ -184,6 +184,9 @@ def create_tool(
 
         if not cafes:
             failures = [s for s in statuses if not s.ok]
+            if kakao_error is not None and len(failures) < len(statuses):
+                # 1순위가 실패하고 보조 출처만 0건이면 '결과 없음'으로 단정하지 않고 1순위 오류를 알린다
+                raise ToolError(kakao_error.code, f"카페를 조회하지 못했습니다: {kakao_error.message} (보조 출처 결과 0건)")
             if failures and len(failures) == len(statuses):
                 codes = {f.error_code for f in failures}
                 code = ErrorCode.MISSING_API_KEY if codes == {ErrorCode.MISSING_API_KEY} else (
