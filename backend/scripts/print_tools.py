@@ -1,6 +1,6 @@
 """등록된 Tool 목록과 입출력 스키마를 출력한다 (F3001 확인용).
 
-실행: .venv/bin/python -m scripts.print_tools
+실행 (backend/ 에서): ../.venv/bin/python -m scripts.print_tools
 """
 from __future__ import annotations
 

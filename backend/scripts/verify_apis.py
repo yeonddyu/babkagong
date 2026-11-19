@@ -4,7 +4,7 @@
 - 키가 없으면 해당 항목을 BLOCKED 로 기록하고 호출하지 않는다 (공개 sample 키 / 잘못된 키 확인 제외).
 - 출력 URL 의 비밀키는 마스킹한다. 원본 응답은 저장하지 않는다.
 
-실행: .venv/bin/python -m scripts.verify_apis
+실행 (backend/ 에서): ../.venv/bin/python -m scripts.verify_apis
 """
 from __future__ import annotations
 
