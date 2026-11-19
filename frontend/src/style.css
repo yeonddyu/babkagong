@@ -28,7 +28,7 @@ a { color: var(--coffee); }
 button { font: inherit; cursor: pointer; }
 input, textarea, select { font: inherit; }
 
-.shell { max-width: 1080px; margin: 0 auto; padding: 0 16px 48px; }
+.shell { max-width: 1320px; margin: 0 auto; padding: 0 16px 48px; }
 .topbar { display: flex; align-items: center; justify-content: space-between; padding: 18px 0; gap: 12px; flex-wrap: wrap; }
 .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); }
 .brand-mark { width: 40px; height: 40px; border-radius: 12px; background: var(--accent); color: #fff; display: grid; place-items: center; font-family: 'Gowun Dodum', sans-serif; font-size: 22px; }

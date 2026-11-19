@@ -9,12 +9,14 @@ import type { Plan, Recommendation } from '../src/types'
 
 const rec: Recommendation = {
   name: '김치찌개집', source: 'seoul_tourism_redtable', source_id: '1', address: '서울 강남구 테스트로 1', area: '강남역',
+  latitude: 37.4981, longitude: 127.0277,
   category: '한식', food_type: '한식', distance_m: 120, estimated_walk_minutes: 3,
   matched_menus: [{ name: '김치찌개', price_krw: 9000 }], business_hours: null,
   checks: [{ criterion: '예산', result: 'pass', value: '1만원 이하 메뉴 1개', basis: '메뉴정보', hard: true },
            { criterion: '영업시간', result: 'unknown', value: '영업시간 미확인', basis: '', hard: false }],
   score: 90, score_reasons: ['거리 감점'], unverified: ['영업시간 미확인 — 12:00 영업 여부를 방문 전 확인 필요'],
-  cafes: [{ name: '카페1', source: 'gangnam_rest_food_license', source_id: 'x', road_address: null, address: '역삼동', distance_m: 50,
+  cafes: [{ name: '카페1', source: 'gangnam_rest_food_license', source_id: 'x', road_address: null, address: '역삼동',
+            latitude: 37.4983, longitude: 127.0279, distance_m: 50,
             distance_basis: '직선', estimated_walk_minutes: 1, place_url: null, phone: null }],
   cafe_notice: null,
 }

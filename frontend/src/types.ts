@@ -16,6 +16,8 @@ export interface Cafe {
   source_id: string
   road_address: string | null
   address: string | null
+  latitude: number | null
+  longitude: number | null
   distance_m: number | null
   distance_basis: string | null
   estimated_walk_minutes: number | null
@@ -29,6 +31,8 @@ export interface Recommendation {
   source_id: string
   address: string | null
   area: string | null
+  latitude: number | null
+  longitude: number | null
   category: string | null
   food_type: string | null
   distance_m: number | null
