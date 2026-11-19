@@ -22,6 +22,7 @@ class JsonCache:
         self.directory = Path(directory)
         self.ttl = timedelta(hours=ttl_hours)
         self._clock = clock
+        self._memory: dict[str, tuple[float, dict[str, Any]]] = {}  # 파일 mtime 기준 메모리 캐시 (NF3005)
 
     def _path(self, name: str) -> Path:
         return self.directory / f"{name}.json"
@@ -31,7 +32,13 @@ class JsonCache:
         if not path.exists():
             return None
         try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
+            mtime = path.stat().st_mtime
+            hit = self._memory.get(name)
+            if hit and hit[0] == mtime:
+                payload = hit[1]
+            else:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+                self._memory[name] = (mtime, payload)
             fetched_at = datetime.fromisoformat(payload["fetched_at"])
         except (ValueError, KeyError, OSError):
             return None
@@ -45,6 +52,7 @@ class JsonCache:
         tmp = self._path(name).with_suffix(".tmp")
         tmp.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
         tmp.replace(self._path(name))
+        self._memory.pop(name, None)
         return payload
 
     def get_or_build(self, name: str, builder: Callable[[], tuple[Any, dict[str, Any]]]) -> dict[str, Any]:

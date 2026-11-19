@@ -64,6 +64,16 @@ def _ymd(value: Any) -> str | None:
     return f"{digits[:4]}-{digits[4:6]}-{digits[6:]}"
 
 
+def _records(owner: Any, payload: dict[str, Any]) -> list[RestaurantRecord]:
+    """같은 캐시 payload 에서 만든 레코드 목록을 재사용한다 (매 호출 변환 비용 제거)."""
+    memo = getattr(owner, "_records_memo", None)
+    if memo is not None and memo[0] is payload:
+        return memo[1]
+    records = [RestaurantRecord.from_dict(d) for d in payload["data"]]
+    owner._records_memo = (payload, records)
+    return records
+
+
 # ---------------------------------------------------------------- 레드테이블
 def normalize_redtable_restaurant(row: dict[str, Any]) -> RestaurantRecord | None:
     rid = _text(row.get("RSTR_ID"))
@@ -110,7 +120,7 @@ class RedtableRestaurantDataset:
     def load(self) -> tuple[list[RestaurantRecord], dict[str, Any]]:
         payload = self.cache.get_or_build(self.CACHE_NAME, self._build)
         meta = {k: v for k, v in payload.items() if k != "data"}
-        return [RestaurantRecord.from_dict(d) for d in payload["data"]], meta
+        return _records(self, payload), meta
 
 
 # ---------------------------------------------------------- 강남구 인허가
@@ -207,7 +217,7 @@ class GangnamLicenseDataset:
     def load(self) -> tuple[list[RestaurantRecord], dict[str, Any]]:
         payload = self.cache.get_or_build(self.cache_name, self._build)
         meta = {k: v for k, v in payload.items() if k != "data"}
-        return [RestaurantRecord.from_dict(d) for d in payload["data"]], meta
+        return _records(self, payload), meta
 
 
 # ------------------------------------------------ 레드테이블 메뉴·운영정보 (F3003)
