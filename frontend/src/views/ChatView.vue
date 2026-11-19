@@ -7,6 +7,7 @@ import RunTimeline from '../components/RunTimeline.vue'
 import StatusBanner from '../components/StatusBanner.vue'
 import { formatMessage } from '../utils/format'
 import { weatherMood } from '../utils/weather'
+import WeatherMascot from '../components/WeatherMascot.vue'
 import { chosenCafeIndex, courseState, resetCourse, selectCourse } from '../stores/course'
 import type { Area, ChatResponse, RunEvent } from '../types'
 
@@ -104,6 +105,7 @@ async function scroll() {
     </div>
 
     <section class="chat" aria-label="대화">
+      <WeatherMascot :weather="latest?.weather" :has-result="!!latest" />
       <div class="toolbar card">
         <div class="area-select" role="radiogroup" aria-label="지역 선택">
           <span class="muted small">지역</span>
