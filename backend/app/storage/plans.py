@@ -8,7 +8,7 @@ from datetime import date, datetime, time
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from sqlalchemy import Date, DateTime, Integer, String, Text, Time, select
+from sqlalchemy import Date, DateTime, Float, Integer, String, Text, Time, select
 from sqlalchemy.orm import Mapped, mapped_column, sessionmaker
 
 from app.datasets.cache import KST, now_kst
@@ -28,11 +28,15 @@ class PlanRow(Base):
     restaurant_source: Mapped[str | None] = mapped_column(String(64), nullable=True)
     restaurant_source_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     restaurant_address: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    restaurant_lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    restaurant_lng: Mapped[float | None] = mapped_column(Float, nullable=True)
     cafe_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     cafe_source: Mapped[str | None] = mapped_column(String(64), nullable=True)
     cafe_source_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     cafe_address: Mapped[str | None] = mapped_column(String(300), nullable=True)
     cafe_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    cafe_lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    cafe_lng: Mapped[float | None] = mapped_column(Float, nullable=True)
     memo: Mapped[str | None] = mapped_column(Text, nullable=True)
     session_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -49,11 +53,15 @@ class PlanBase(BaseModel):
     restaurant_source: str | None = None
     restaurant_source_id: str | None = None
     restaurant_address: str | None = None
+    restaurant_lat: float | None = Field(default=None, ge=33, le=39, description="지도 표시용 좌표 (추천 결과의 확인된 값)")
+    restaurant_lng: float | None = Field(default=None, ge=124, le=132)
     cafe_name: str | None = None
     cafe_source: str | None = None
     cafe_source_id: str | None = None
     cafe_address: str | None = None
     cafe_url: str | None = None
+    cafe_lat: float | None = Field(default=None, ge=33, le=39)
+    cafe_lng: float | None = Field(default=None, ge=124, le=132)
     memo: str | None = Field(default=None, max_length=1000)
     session_id: str | None = None
 

@@ -89,3 +89,38 @@ def test_save_assumptions_when_time_missing(make_settings, repo):
     body = agent.run("이거 저장해줘", session_id="t")["response"]
     assert body["saved_plan"]["start_time"] == "12:00:00" and body["saved_plan"]["plan_date"] == TODAY.isoformat()
     assert any("오늘" in a for a in body["save_result"]["assumptions"])
+
+
+def test_save_with_chosen_cafe_and_coordinates(make_settings, repo):
+    agent = MainAgent(make_registry(make_settings, make_session()), today_fn=lambda: TODAY,
+                      memory=InMemoryMemoryStore(), plan_repo=repo)
+    first = agent.run("내일 12시 강남역 1만원 이하 점심 먹고 카공", session_id="c")["response"]["recommendations"][0]
+    saved = agent.run("1번 코스 저장해줘 (카페 2번)", session_id="c")["response"]["saved_plan"]
+    assert saved["cafe_name"] == first["cafes"][1]["name"]
+    assert saved["restaurant_lat"] == first["latitude"] and saved["cafe_lat"] == first["cafes"][1]["latitude"]
+    saved2 = agent.run("카페 3번으로 1번 코스 저장", session_id="c")["response"]["saved_plan"]
+    assert saved2["cafe_name"] == first["cafes"][2]["name"] and saved2["restaurant_name"] == first["name"]
+
+
+def test_old_db_file_gets_new_columns(tmp_path):
+    """좌표 컬럼이 없던 이전 DB 파일도 데이터를 유지한 채 보강된다."""
+    import sqlite3
+
+    path = tmp_path / "old.db"
+    con = sqlite3.connect(path)
+    con.execute("CREATE TABLE plans (id INTEGER PRIMARY KEY, title VARCHAR(100) NOT NULL, plan_date DATE NOT NULL, "
+                "start_time TIME NOT NULL, end_time TIME NOT NULL, area VARCHAR(10), restaurant_name VARCHAR(200) NOT NULL, "
+                "restaurant_source VARCHAR(64), restaurant_source_id VARCHAR(64), restaurant_address VARCHAR(300), "
+                "cafe_name VARCHAR(200), cafe_source VARCHAR(64), cafe_source_id VARCHAR(64), cafe_address VARCHAR(300), "
+                "cafe_url VARCHAR(500), memo TEXT, session_id VARCHAR(64), created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)")
+    con.execute("INSERT INTO plans VALUES (1,'옛 계획','2026-11-20','12:00:00.000000','13:00:00.000000',NULL,'식당',NULL,NULL,NULL,"
+                "NULL,NULL,NULL,NULL,NULL,NULL,NULL,'2026-11-19 10:00:00','2026-11-19 10:00:00')")
+    con.commit()
+    con.close()
+    engine = make_engine(f"sqlite:///{path}")
+    init_db(engine)
+    r = PlanRepository(make_session_factory(engine))
+    old = r.get(1)
+    assert old.title == "옛 계획" and old.restaurant_lat is None
+    p, _ = r.create(plan(restaurant_lat=37.4981, restaurant_lng=127.0277))
+    assert r.get(p.id).restaurant_lat == 37.4981

@@ -160,11 +160,14 @@ class MainAgent:
     def save_node(self, state: AgentState) -> dict[str, Any]:
         """F3015: 직전 추천 코스를 계획으로 저장 (모델 판단이 필요 없어 Tool 로 두지 않음)."""
         previous = state.get("previous") or {}
-        m = re.search(r"(\d)\s*번", state["message"])
+        msg = state["message"]
+        cafe_m = re.search(r"카페\s*(\d)\s*번?", msg)
+        cafe_index = int(cafe_m.group(1)) - 1 if cafe_m else 0
+        m = re.search(r"(\d)\s*번\s*코스", msg) or re.search(r"(\d)\s*번", re.sub(r"카페\s*\d\s*번?", "", msg))
         index = int(m.group(1)) - 1 if m else 0
         if self.plan_repo is None:
             return {"save_result": {"ok": False, "reason": "계획 저장소가 연결되지 않았습니다."}}
-        course = course_from_memory(previous, index, self.today_fn(), state["session_id"])
+        course = course_from_memory(previous, index, self.today_fn(), state["session_id"], cafe_index)
         if course is None:
             return {"save_result": {"ok": False, "reason": "저장할 추천 코스가 없어요. 먼저 추천을 받아 주세요."}}
         try:

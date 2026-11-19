@@ -52,7 +52,8 @@ def summarize_recommendations(recommendations: list[dict[str, Any]]) -> list[dic
             "restaurant": {k: r.get(k) for k in ("name", "source", "source_id", "address", "latitude", "longitude", "distance_m", "area")},
             "menus": [{"name": m["name"], "price_krw": m.get("price_krw")} for m in r.get("matched_menus", [])[:3]],
             "business_hours": r.get("business_hours"),
-            "cafes": [{k: c.get(k) for k in ("name", "source", "source_id", "road_address", "address", "place_url", "distance_m")}
+            "cafes": [{k: c.get(k) for k in ("name", "source", "source_id", "road_address", "address", "place_url", "distance_m",
+                                             "latitude", "longitude")}
                       for c in r.get("cafes", [])[:3]],
         })
     return out

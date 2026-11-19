@@ -16,7 +16,8 @@ DEFAULT_START = time(12, 0)
 DEFAULT_CAFE_MINUTES = 120
 
 
-def course_from_memory(previous: dict[str, Any], index: int, today: date, session_id: str | None) -> dict[str, Any] | None:
+def course_from_memory(previous: dict[str, Any], index: int, today: date, session_id: str | None,
+                       cafe_index: int = 0) -> dict[str, Any] | None:
     recs = previous.get("recommendations") or []
     if not recs or not (0 <= index < len(recs)):
         return None
@@ -38,12 +39,16 @@ def course_from_memory(previous: dict[str, Any], index: int, today: date, sessio
         end = end_dt.time() if end_dt.date() == day else time(23, 59)
         assumptions.append(f"종료 시각은 식사 {COURSE_POLICY.meal_minutes}분 + 카공 {DEFAULT_CAFE_MINUTES}분 기준 {end.strftime('%H:%M')}로 저장했어요. 계획 화면에서 수정할 수 있어요.")
     r = rec["restaurant"]
-    cafe = (rec.get("cafes") or [None])[0] or {}
+    cafes = rec.get("cafes") or []
+    if not 0 <= cafe_index < len(cafes):
+        cafe_index = 0
+    cafe = cafes[cafe_index] if cafes else {}
     plan = PlanCreate(
         title=f"{r['name']}" + (f" + {cafe['name']}" if cafe.get("name") else ""),
         plan_date=day, start_time=start, end_time=end, area=r.get("area") or cond.preference.area,
         restaurant_name=r["name"], restaurant_source=r.get("source"), restaurant_source_id=r.get("source_id"),
-        restaurant_address=r.get("address"), cafe_name=cafe.get("name"), cafe_source=cafe.get("source"),
+        restaurant_address=r.get("address"), restaurant_lat=r.get("latitude"), restaurant_lng=r.get("longitude"),
+        cafe_name=cafe.get("name"), cafe_source=cafe.get("source"), cafe_lat=cafe.get("latitude"), cafe_lng=cafe.get("longitude"),
         cafe_source_id=cafe.get("source_id"), cafe_address=cafe.get("road_address") or cafe.get("address"),
         cafe_url=cafe.get("place_url"), session_id=session_id,
     )
