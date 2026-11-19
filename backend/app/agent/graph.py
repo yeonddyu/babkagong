@@ -16,6 +16,7 @@ from app.agent.analysis import analyze
 from app.agent.conditions import AnalysisResult, Conditions
 from app.agent.execution import ExecutionData, ToolExecutor, run_cafes, run_candidates, run_details, run_weather
 from app.agent.judge import Evaluation, cafe_radius, evaluate
+from app.agent.memory import InMemoryMemoryStore, MemoryStore, build_memory, resolve_conditions
 from app.agent.planning import CAFE_TARGETS, Plan, build_plan
 from app.datasets.cache import now_kst
 from app.tools.registry import ToolRegistry
@@ -29,6 +30,8 @@ class AgentState(TypedDict, total=False):
     previous: dict[str, Any] | None
     analysis: AnalysisResult
     conditions: Conditions
+    changed_fields: list[str]
+    used_previous: bool
     plan: Plan
     executor: ToolExecutor
     data: ExecutionData
@@ -48,12 +51,14 @@ class MainAgent:
         *,
         llm: Any | None = None,
         max_replans: int = 3,
+        memory: MemoryStore | None = None,
         today_fn: Callable[[], date] = lambda: now_kst().date(),
         now_fn: Callable[[], datetime] = now_kst,
     ):
         self.registry = registry
         self.llm = llm
         self.max_replans = max_replans
+        self.memory = memory or InMemoryMemoryStore()
         self.today_fn = today_fn
         self.now_fn = now_fn
         self.graph = self._build()
@@ -83,11 +88,12 @@ class MainAgent:
     # ------------------------------------------------------------ nodes
     def analyze_node(self, state: AgentState) -> dict[str, Any]:
         analysis = analyze(state["message"], self.today_fn(), self.llm)
-        conditions = analysis.conditions
-        if state.get("area_hint") and conditions.preference.area is None:
+        conditions, changed, used_previous = resolve_conditions(analysis, state.get("previous"))
+        if analysis.intent == "recommend" and state.get("area_hint") and conditions.preference.area is None:
             conditions = conditions.model_copy(deep=True)
             conditions.preference.area = state["area_hint"]
-        return {"analysis": analysis, "conditions": conditions}
+            changed.append("preference.area")
+        return {"analysis": analysis, "conditions": conditions, "changed_fields": changed, "used_previous": used_previous}
 
     def _after_analyze(self, state: AgentState) -> str:
         return "plan" if state["analysis"].intent == "recommend" else "respond"
@@ -177,15 +183,27 @@ class MainAgent:
         ev: Evaluation | None = state.get("evaluation")
         recs = []
         if data and ev:
+            by_key = {f"{c['source']}:{c['source_id']}": c for c in data.candidates}
             for e in ev.satisfied[:CAFE_TARGETS]:
-                recs.append({"evaluation": e, "cafes": (data.cafes.get(e.key) or {}).get("cafes", [])})
+                detail = data.details.get(e.key) or {}
+                recs.append({
+                    "restaurant": by_key[e.key],
+                    "evaluation": e,
+                    "matched_menus": e.matched_menus,
+                    "business_hours": ((detail.get("operation") or {}).get("business_hours")),
+                    "cafes": (data.cafes.get(e.key) or {}).get("cafes", []),
+                    "cafe_error": data.cafe_errors.get(e.key),
+                })
         return {"response": {"intent": analysis.intent, "recommendations": recs,
                              "excluded": [e for e in (ev.excluded if ev else [])]}}
 
     # ------------------------------------------------------------ run
     def run(self, message: str, *, session_id: str | None = None, area_hint: str | None = None) -> dict[str, Any]:
+        session_id = session_id or uuid.uuid4().hex
+        previous = self._load_memory(session_id)
         state: AgentState = {
-            "session_id": session_id or uuid.uuid4().hex,
+            "session_id": session_id,
+            "previous": previous,
             "run_id": uuid.uuid4().hex,
             "message": message,
             "area_hint": area_hint,
@@ -198,11 +216,15 @@ class MainAgent:
         }
         final = self.graph.invoke(state)
         ex: ToolExecutor = final["executor"]
+        self._save_memory(final, previous)
         return {
             "session_id": final["session_id"],
             "run_id": final["run_id"],
             "analysis": final["analysis"],
             "conditions": final["conditions"],
+            "changed_fields": final.get("changed_fields", []),
+            "used_previous": final.get("used_previous", False),
+            "previous": previous,
             "plan": final.get("plan"),
             "tool_calls": [asdict(c) for c in ex.calls],
             "data": final["data"],
@@ -211,3 +233,20 @@ class MainAgent:
             "stop_reason": final.get("stop_reason"),
             "response": final["response"],
         }
+
+    # ------------------------------------------------------------ memory
+    def _load_memory(self, session_id: str) -> dict[str, Any] | None:
+        try:
+            return self.memory.load(session_id)
+        except Exception:  # noqa: BLE001 - 맥락 저장소 장애가 대화를 막지 않도록
+            return None
+
+    def _save_memory(self, final: AgentState, previous: dict[str, Any] | None) -> None:
+        analysis: AnalysisResult = final["analysis"]
+        if analysis.intent not in ("recommend",) and previous is not None:
+            return  # 인사·사용법 등은 직전 맥락을 유지
+        try:
+            self.memory.save(final["session_id"], build_memory(
+                final["conditions"], analysis.intent, final["response"]["recommendations"], previous))
+        except Exception:  # noqa: BLE001
+            pass
