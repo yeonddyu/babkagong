@@ -327,6 +327,8 @@ def analyze(message: str, today: date, llm: Any | None = None, stations: Station
         result: AnalysisResult = structured.invoke([("system", prompt), ("human", message)])
         result.decided_by = "llm"
         result.unsupported_area = rule.unsupported_area  # 안내용 값은 코드로만
+        if rule.unsupported_area and rule.intent == "recommend":
+            result.intent = "recommend"  # 서비스 밖 역을 말한 추천 요청은 '범위 밖' 이 아니라 역을 되묻는다 (코드 판단)
         return _apply_more(_evidence_guard(result, message, rule, stations), rule)
     except Exception as exc:  # noqa: BLE001 - LLM 실패 시 규칙 분석으로 대체
         logger.warning("LLM 분석 실패, 규칙 분석으로 대체: %s", type(exc).__name__)

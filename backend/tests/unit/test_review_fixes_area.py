@@ -64,3 +64,32 @@ def test_llm_area_used_only_when_rules_found_none_and_name_in_message():
                           conditions=Conditions.model_validate({"preference": {"area": "신논현역"}}))
     assert analyze("신논현 점심 추천", TODAY, FakeLLM(fake)).conditions.preference.area == "신논현역"  # 규칙은 못 찾음
     assert analyze("점심 추천해줘", TODAY, FakeLLM(fake)).conditions.preference.area is None  # 발화에 없는 역
+
+
+def test_unsupported_station_via_api_with_llm_saying_out_of_scope(make_settings):
+    """실제 GMS 처럼 LLM 이 '범위 밖' 으로 분류해도 API 응답은 clarify=true·unsupported_area 이고 Tool 호출 0회."""
+    from fastapi.testclient import TestClient
+
+    from app.main import build_deps, create_app
+
+    fake = AnalysisResult(intent="out_of_scope", reason="LLM", decided_by="llm", conditions=Conditions())
+
+    class LLM(FakeLLM):
+        def invoke(self, messages):
+            self.calls += 1
+            if isinstance(messages, list) and "요청 분석기" in messages[0][1]:
+                return self.result
+            return type("Msg", (), {"content": ""})()
+
+    registry = make_registry(make_settings, make_session())
+    settings = make_settings()
+    deps = build_deps(settings.__class__(**{**settings.__dict__, "database_url": "sqlite://"}), registry=registry,
+                      agent_kwargs={"today_fn": lambda: TODAY})
+    deps.agent.llm = LLM(fake)
+    client = TestClient(create_app(deps=deps))
+    first = client.post("/api/chat", json={"message": "강남역 12시 점심 먹고 카공", "area": "강남역"}).json()
+    calls = _capture(registry)
+    r = client.post("/api/chat", json={"message": "같은 조건에서 홍대입구역에서 점심", "session_id": first["session_id"],
+                                       "area": "역삼역"}).json()
+    assert r["intent"] == "recommend" and r["clarify"] is True and r["unsupported_area"] == "홍대입구역"
+    assert r["message"].startswith("홍대입구역은(는) 서비스 지역이 아니에요.") and calls == []
