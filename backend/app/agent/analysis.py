@@ -145,7 +145,7 @@ def parse_exit(text: str) -> int | None:
 
 
 def parse_walk(text: str) -> tuple[int | None, int | None]:
-    m = re.search(r"(\d{2,5})\s*(?:m|미터)\s*(?:이내|이하|안|까지)?", text)
+    m = re.search(r"(?<![\d.])(\d{1,5})\s*(?:m|미터)(?![A-Za-z])\s*(?:이내|이하|안|까지)?", text)  # 한 자리(9m)도
     meters = int(m.group(1)) if m else None
     m = re.search(r"(?:도보|걸어서)\s*(\d{1,2})\s*분|(\d{1,2})\s*분\s*(?:이내|안|거리|이하)", text)
     minutes = int(m.group(1) or m.group(2)) if m else None
@@ -262,6 +262,10 @@ def _evidence_guard(result: AnalysisResult, message: str, rule: AnalysisResult,
         c.constraint.budget_max = None
     if c.constraint.max_walk_m and not re.search(r"\d", message):
         c.constraint.max_walk_m = None
+    if rule.conditions.constraint.max_walk_m is not None:  # 발화의 숫자로 규칙이 찾은 거리 상한이 우선
+        c.constraint.max_walk_m = rule.conditions.constraint.max_walk_m
+    if rule.conditions.constraint.max_walk_minutes is not None:
+        c.constraint.max_walk_minutes = rule.conditions.constraint.max_walk_minutes
     if c.base.visit_date and rule.conditions.base.visit_date is None and not re.search(r"\d|오늘|내일|모레|요일", message):
         c.base.visit_date = None
     if (c.base.meal_time or c.base.cafe_time) and not re.search(r"\d", message):
