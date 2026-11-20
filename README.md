@@ -34,6 +34,21 @@ cd frontend && npm run dev
 카카오 지도(선택): 저장소 루트 `.env` (또는 `frontend/.env.local`) 에 `VITE_KAKAO_MAP_KEY=JavaScript키` 를 넣고, 카카오 앱 > 플랫폼 > Web 에
 `http://localhost:5173` 을 등록한다. 키가 없으면 실제 좌표로 그린 위치도로 표시된다. (`frontend/.env.example` 참고)
 
+## 공개 데모 배포
+
+루트의 `Dockerfile`은 Vue를 빌드하고 같은 주소에서 FastAPI와 함께 제공합니다. 공개 데모에서는 추천·지도·실행 과정은 사용할 수 있고, 계획 저장과 계획·로그 관리 API는 꺼집니다. 기존 개발 서버에서는 계획 기능을 그대로 사용할 수 있습니다.
+
+```bash
+docker build -t babkagong-demo .
+docker volume create babkagong-data
+docker run --rm -p 127.0.0.1:8000:8000 --env-file .env -v babkagong-data:/data babkagong-demo
+```
+
+- 호스팅에서는 저장소 루트의 Dockerfile을 사용하고 서비스가 전달하는 `PORT`에 연결합니다. 상태 확인 경로는 `/api/health`입니다.
+- API 키는 호스팅 서비스의 비밀 환경변수에 입력합니다. 최종 HTTPS 주소에서 카카오 지도를 쓰려면 Kakao Developers에 그 주소를 등록하고 공개용 JavaScript 키를 빌드 인자 `VITE_KAKAO_MAP_KEY`로 전달합니다.
+- `/data`는 쓰기 가능한 영구 디스크에 연결합니다. 여기에는 SQLite 대화 상태와 식당·메뉴 등 서버 캐시가 들어갑니다. Docker 이미지는 캐시를 포함하지 않으며, 기본값으로 시작 시 일괄 수집을 호출하지 않습니다. 처음 운영할 때는 API 한도와 이용 조건을 확인하고 서버 캐시를 준비합니다.
+- 공개 주소를 열기 전에 호스팅에서 HTTPS와 대화 요청에 대한 요청량 제한을 설정하고, 공개 데모에 사용할 API 키의 이용 범위를 확인합니다.
+
 ## 화면
 - 데스크톱(45:55): 왼쪽 날씨 마스코트 → 지역 선택 → 대화(짧은 요약, 전체 답변은 펼치기) → 원형 메뉴 룰렛 → 코스 흐름 → 추천 카드(저장) /
   오른쪽 화면을 따라오는 카카오 지도(핀을 누르면 장소 정보 카드, 다른 카페 후보로 바꾸기)

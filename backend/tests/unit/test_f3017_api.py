@@ -27,6 +27,41 @@ def test_openapi_routes_are_separate(client):
     assert client.get("/docs").status_code == 200
 
 
+@pytest.mark.parametrize("public_demo", [False, True])
+def test_built_frontend_and_management_access(make_settings, monkeypatch, tmp_path, public_demo):
+    dist = tmp_path / "dist"
+    assets = dist / "assets"
+    assets.mkdir(parents=True)
+    (dist / "index.html").write_text('<script src="/assets/app.js"></script>')
+    (assets / "app.js").write_text('console.log("밥카공");', encoding="utf-8")
+    monkeypatch.setenv("BABKAGONG_FRONTEND_DIR", str(dist))
+    settings = replace(make_settings(), database_url="sqlite://", public_demo=public_demo)
+    deps = build_deps(settings, registry=make_registry(make_settings, make_session()))
+    client = TestClient(create_app(deps=deps))
+
+    assert client.get("/").headers["content-type"].startswith("text/html")
+    assert client.get("/assets/app.js").status_code == 200
+    assert client.get("/assets/missing.js").status_code == 404
+    assert client.get("/api/unknown").json()["detail"]["code"] == "NOT_FOUND"
+    assert client.get("/api/stations").status_code == 200
+    chat = client.post("/api/chat", json={"message": "강남역 점심 추천"})
+    assert chat.status_code == 200 and chat.json()["recommendations"]
+    saved = client.post("/api/chat", json={"message": "이 코스로 저장해줘", "session_id": chat.json()["session_id"]})
+
+    if public_demo:
+        assert client.get("/plans/1").status_code == 404
+        assert client.get("/api/plans").status_code == 404
+        assert client.post("/api/plans", json={}).status_code == 404
+        assert client.get("/api/logs").status_code == 404
+        assert saved.json()["saved_plan"] is None
+        assert deps.logs.list_sessions() == []
+    else:
+        assert client.get("/plans/1").headers["content-type"].startswith("text/html")
+        assert client.get("/api/plans").status_code == 200
+        assert client.get("/api/logs").json()["sessions"]
+        assert saved.json()["saved_plan"]
+
+
 def test_health_hides_key_values(client):
     body = client.get("/api/health").json()
     assert body["api_keys"]["REDTABLE_API_KEY"] is True and body["api_keys"]["OPENAI_API_KEY"] is False

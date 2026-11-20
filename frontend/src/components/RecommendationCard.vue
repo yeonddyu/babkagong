@@ -4,6 +4,7 @@
 import { computed } from 'vue'
 import type { Recommendation } from '../types'
 
+const publicDemo = import.meta.env.VITE_BABKAGONG_PUBLIC_DEMO === '1'
 const props = withDefaults(defineProps<{ rec: Recommendation; index: number; saving?: boolean; cafeIndex?: number }>(), { cafeIndex: 0 })
 const emit = defineEmits<{
   save: [index: number]
@@ -38,7 +39,7 @@ const otherCafes = computed(() => props.rec.cafes.map((c, i) => ({ c, i })).filt
         <h3>{{ rec.name }}</h3>
         <p class="muted small">{{ rec.address ?? '주소 미확인' }}</p>
       </div>
-      <button class="btn primary save" :disabled="saving" @click.stop="emit('save', index)">
+      <button v-if="!publicDemo" class="btn primary save" :disabled="saving" @click.stop="emit('save', index)">
         {{ saving ? '저장 중…' : '이 코스 저장' }}
       </button>
     </header>

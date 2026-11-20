@@ -1,5 +1,5 @@
 // UI 개선 3 — 시각적 추천 카드
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import RecommendationCard from '../src/components/RecommendationCard.vue'
 import { makeRec } from './helpers'
@@ -40,5 +40,17 @@ describe('추천 카드', () => {
     expect(w.emitted('save')?.[0]).toEqual([1])
     expect(parentClicks).toBe(0)
     w.unmount()
+  })
+
+  it('공개 데모에서도 추천 카페는 표시하고 저장 버튼은 숨긴다', () => {
+    vi.stubEnv('VITE_BABKAGONG_PUBLIC_DEMO', '1')
+    try {
+      const card = mount(RecommendationCard, { props: { rec: makeRec(), index: 0 } })
+      expect(card.find('.main-cafe').text()).toContain('카페1')
+      expect(card.find('button.save').exists()).toBe(false)
+      card.unmount()
+    } finally {
+      vi.unstubAllEnvs()
+    }
   })
 })

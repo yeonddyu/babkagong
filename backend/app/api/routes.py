@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 ERRORS = {400: {"model": ErrorResponse}, 404: {"model": ErrorResponse}, 422: {"model": ErrorResponse}, 500: {"model": ErrorResponse}}
 
 router = APIRouter(prefix="/api")
+management_router = APIRouter(prefix="/api")
 
 
 def _deps(request: Request):
@@ -120,19 +121,19 @@ def chat_stream(req: ChatRequest, request: Request):
 
 
 # ---------------------------------------------------------------- 계획
-@router.get("/plans", response_model=PlanListResponse, tags=["plans"], summary="계획 목록")
+@management_router.get("/plans", response_model=PlanListResponse, tags=["plans"], summary="계획 목록")
 def list_plans(request: Request, plan_date: date | None = Query(default=None, alias="date")):
     return PlanListResponse(plans=_deps(request).plans.list(plan_date))
 
 
-@router.post("/plans", response_model=PlanSaveResponse, status_code=201, responses=ERRORS, tags=["plans"],
+@management_router.post("/plans", response_model=PlanSaveResponse, status_code=201, responses=ERRORS, tags=["plans"],
              summary="계획 저장 (시간 겹침은 저장 후 conflicts 로 안내)")
 def create_plan(data: PlanCreate, request: Request):
     plan, conflicts = _deps(request).plans.create(data)
     return PlanSaveResponse(plan=plan, conflicts=conflicts)
 
 
-@router.get("/plans/{plan_id}", response_model=PlanOut, responses=ERRORS, tags=["plans"], summary="계획 상세")
+@management_router.get("/plans/{plan_id}", response_model=PlanOut, responses=ERRORS, tags=["plans"], summary="계획 상세")
 def get_plan(plan_id: int, request: Request):
     try:
         return _deps(request).plans.get(plan_id)
@@ -140,7 +141,7 @@ def get_plan(plan_id: int, request: Request):
         raise _error(404, "NOT_FOUND", "계획을 찾을 수 없어요.")
 
 
-@router.put("/plans/{plan_id}", response_model=PlanSaveResponse, responses=ERRORS, tags=["plans"], summary="계획 수정")
+@management_router.put("/plans/{plan_id}", response_model=PlanSaveResponse, responses=ERRORS, tags=["plans"], summary="계획 수정")
 def update_plan(plan_id: int, data: PlanUpdate, request: Request):
     try:
         plan, conflicts = _deps(request).plans.update(plan_id, data)
@@ -151,7 +152,7 @@ def update_plan(plan_id: int, data: PlanUpdate, request: Request):
     return PlanSaveResponse(plan=plan, conflicts=conflicts)
 
 
-@router.delete("/plans/{plan_id}", response_model=DeleteResponse, responses=ERRORS, tags=["plans"], summary="계획 삭제")
+@management_router.delete("/plans/{plan_id}", response_model=DeleteResponse, responses=ERRORS, tags=["plans"], summary="계획 삭제")
 def delete_plan(plan_id: int, request: Request):
     try:
         _deps(request).plans.delete(plan_id)
@@ -161,12 +162,12 @@ def delete_plan(plan_id: int, request: Request):
 
 
 # ---------------------------------------------------------------- 실행 로그 (수정 API 없음)
-@router.get("/logs", response_model=LogListResponse, tags=["logs"], summary="세션별 실행 로그 목록")
+@management_router.get("/logs", response_model=LogListResponse, tags=["logs"], summary="세션별 실행 로그 목록")
 def list_logs(request: Request):
     return LogListResponse(sessions=_deps(request).logs.list_sessions())
 
 
-@router.get("/logs/{session_id}", response_model=LogDetailResponse, responses=ERRORS, tags=["logs"],
+@management_router.get("/logs/{session_id}", response_model=LogDetailResponse, responses=ERRORS, tags=["logs"],
             summary="세션 실행 로그 상세 (실행 순서)")
 def get_logs(session_id: str, request: Request):
     events = _deps(request).logs.get_session(session_id)
@@ -175,7 +176,7 @@ def get_logs(session_id: str, request: Request):
     return LogDetailResponse(session_id=session_id, events=events)
 
 
-@router.delete("/logs/{session_id}", response_model=DeleteResponse, responses=ERRORS, tags=["logs"], summary="세션 실행 로그 삭제")
+@management_router.delete("/logs/{session_id}", response_model=DeleteResponse, responses=ERRORS, tags=["logs"], summary="세션 실행 로그 삭제")
 def delete_logs(session_id: str, request: Request):
     count = _deps(request).logs.delete_session(session_id)
     if count == 0:

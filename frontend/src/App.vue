@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { RouterLink, RouterView } from 'vue-router'
+
+const publicDemo = import.meta.env.VITE_BABKAGONG_PUBLIC_DEMO === '1'
 </script>
 
 <template>
@@ -11,10 +13,11 @@ import { RouterLink, RouterView } from 'vue-router'
       </RouterLink>
       <nav class="nav">
         <RouterLink to="/" class="nav-link" exact-active-class="active">추천 대화</RouterLink>
-        <RouterLink to="/plans" class="nav-link" active-class="active">저장한 계획</RouterLink>
+        <RouterLink v-if="!publicDemo" to="/plans" class="nav-link" active-class="active">저장한 계획</RouterLink>
       </nav>
     </header>
     <main class="content">
+      <p v-if="publicDemo" class="notice info">공개 데모에서는 코스 추천과 지도를 이용할 수 있어요. 계획 저장은 제공하지 않아요.</p>
       <RouterView />
     </main>
   </div>

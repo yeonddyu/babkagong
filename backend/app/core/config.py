@@ -46,6 +46,7 @@ class Settings:
     ai_provider: str = "gms"
     max_replans: int = 3
     database_url: str = ""
+    public_demo: bool = False
 
     def key_status(self) -> dict[str, bool]:
         """API 키 존재 여부만 반환한다 (값은 노출하지 않음)."""
@@ -108,4 +109,5 @@ def load_settings(*, load_env_file: bool = True) -> Settings:
         ai_provider=(os.getenv("AI_PROVIDER") or "gms").strip().lower(),
         max_replans=int(os.getenv("MAX_REPLANS") or "3"),
         database_url=db_url,
+        public_demo=os.getenv("BABKAGONG_PUBLIC_DEMO") == "1",
     )

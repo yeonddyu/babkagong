@@ -9,16 +9,18 @@ import logging
 import os
 import threading
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.agent.graph import MainAgent
-from app.api.routes import router
+from app.api.routes import management_router, router
 from app.core.config import Settings, load_settings
 from app.core.llm_provider import create_llm
 from app.events.bus import EventBus
@@ -41,7 +43,7 @@ class Deps:
     plans: PlanRepository
     logs: LogRepository
     bus: EventBus
-    logging_agent: LoggingAgent
+    logging_agent: LoggingAgent | None
 
 
 def build_deps(settings: Settings, *, registry: ToolRegistry | None = None, agent_kwargs: dict[str, Any] | None = None) -> Deps:
@@ -50,10 +52,11 @@ def build_deps(settings: Settings, *, registry: ToolRegistry | None = None, agen
     sf = make_session_factory(engine)
     plans, logs = PlanRepository(sf), LogRepository(sf)
     bus = EventBus()
-    logging_agent = LoggingAgent(logs).attach(bus)  # 로깅 서브 Agent 구독
+    logging_agent = None if settings.public_demo else LoggingAgent(logs).attach(bus)
     registry = registry or build_default_registry(settings)
     agent = MainAgent(registry, llm=create_llm(settings), max_replans=settings.max_replans,
-                      memory=SqliteMemoryStore(sf), bus=bus, plan_repo=plans, **(agent_kwargs or {}))
+                      memory=SqliteMemoryStore(sf), bus=bus,
+                      plan_repo=None if settings.public_demo else plans, **(agent_kwargs or {}))
     return Deps(settings, registry, agent, plans, logs, bus, logging_agent)
 
 
@@ -106,6 +109,26 @@ def create_app(settings: Settings | None = None, *, deps: Deps | None = None) ->
                                                                   "message": "서버 내부 오류가 발생했어요."}})
 
     app.include_router(router)
+    public_demo = app.state.deps.settings.public_demo
+    if not public_demo:
+        app.include_router(management_router)
+
+    frontend_dir = os.getenv("BABKAGONG_FRONTEND_DIR")
+    if frontend_dir:
+        dist = Path(frontend_dir)
+        index = dist / "index.html"
+        if not index.is_file():
+            raise RuntimeError("BABKAGONG_FRONTEND_DIR에 빌드된 index.html이 필요합니다.")
+        app.mount("/assets", StaticFiles(directory=dist / "assets"), name="frontend-assets")
+
+        def frontend_index() -> FileResponse:
+            return FileResponse(index, headers={"Cache-Control": "no-cache"})
+
+        app.add_api_route("/", frontend_index, include_in_schema=False)
+        if not public_demo:
+            app.add_api_route("/plans", frontend_index, include_in_schema=False)
+            app.add_api_route("/plans/{plan_id:int}", frontend_index, include_in_schema=False)
+
     return app
 
 
