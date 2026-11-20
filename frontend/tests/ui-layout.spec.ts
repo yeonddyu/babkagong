@@ -11,8 +11,8 @@ afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks() })
 async function ask(over = {}) {
   mockChat(() => makeResult(over))
   const w = mount(ChatView, { global: { plugins: [makeRouter()] }, attachTo: document.body })
-  await w.find('input').setValue('강남역 점심')
-  await w.find('form').trigger('submit')
+  await w.find('form.composer input').setValue('강남역 점심')
+  await w.find('form.composer').trigger('submit')
   await flushPromises()
   return w
 }
@@ -92,5 +92,37 @@ describe('응답 문장 표시', () => {
   it('굵게 표기만 강조하고 HTML 은 실행하지 않는다', async () => {
     const { formatMessage } = await import('../src/utils/format')
     expect(formatMessage('**명가** <script>x</script>')).toBe('<strong>명가</strong> &lt;script&gt;x&lt;/script&gt;')
+  })
+})
+
+describe('역 선택 (서울 지하철역)', () => {
+  async function mounted() {
+    const fetch = mockChat(() => makeResult())
+    const w = mount(ChatView, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+    return { w, fetch }
+  }
+
+  it('역 검색으로 목록에 있는 역을 고르면 그 역으로 요청한다 (역 없이 써도 됨)', async () => {
+    const { w, fetch } = await mounted()
+    const search = w.find('.station-search input')
+    expect(w.findAll('#station-list option').map((o) => o.attributes('value'))).toContain('홍대입구역')
+    await search.setValue('홍대입구')
+    await w.find('.station-search').trigger('submit')
+    expect(w.find('.station-search input').classes()).toContain('on')
+    expect(w.findAll('.area-btn.on')).toHaveLength(0)
+    await w.find('form.composer input').setValue('점심 먹고 카공')
+    await w.find('form.composer').trigger('submit')
+    await flushPromises()
+    const body = JSON.parse(fetch.mock.calls.find(([u]) => u === '/api/chat/stream')![1]!.body as string)
+    expect(body.area).toBe('홍대입구역')
+  })
+
+  it('목록에 없는 이름은 받지 않고 이유를 알려 준다', async () => {
+    const { w } = await mounted()
+    await w.find('.station-search input').setValue('부산역')
+    await w.find('.station-search').trigger('submit')
+    expect(w.find('.area-error').text()).toContain('역 목록에 없어요')
+    expect(w.find('.area-btn.on').text()).toBe('강남역')
   })
 })

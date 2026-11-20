@@ -66,8 +66,8 @@ describe('룰렛 결과를 추천 코스로 연결', () => {
   it("'이 메뉴로 식당 찾기'를 누르면 그 코스가 선택되고 지도에서 식당 정보가 열린다", async () => {
     mockChat(() => makeResult())
     const w = mount(ChatView, { global: { plugins: [makeRouter()] } })
-    await w.find('input').setValue('강남역 1만 2천원 이하 점심')
-    await w.find('form').trigger('submit')
+    await w.find('form.composer input').setValue('강남역 1만 2천원 이하 점심')
+    await w.find('form.composer').trigger('submit')
     await flushPromises()
     vi.spyOn(Math, 'random').mockReturnValue(0.5) // 기본 random 은 Math.random
     vi.useFakeTimers()

@@ -53,7 +53,9 @@ const pins = computed<Pin[]>(() => {
       else if (i === props.selected && props.interactive) add('alt', { course: i, cafe: ci }, c.name, c.latitude, c.longitude)
     })
   })
-  areas.forEach((a) => { const s = STATIONS[a]; if (s) add('station', null, a, s[0], s[1]) })
+  // 역 표시: 응답의 거리 기준점(역 중심)을 쓰고, 없으면(저장한 계획 등) 알고 있는 역 좌표만 표시
+  if (props.origin?.kind === 'station') add('station', null, props.origin.label, props.origin.latitude, props.origin.longitude)
+  else areas.forEach((a) => { const s = STATIONS[a]; if (s) add('station', null, a, s[0], s[1]) })
   // 사용자가 말한 출구를 거리 기준점으로 썼다면 출구 위치도 표시
   if (props.origin?.kind === 'exit') add('exit', null, props.origin.label, props.origin.latitude, props.origin.longitude)
   const order = { station: 0, exit: 1, alt: 2, meal: 3, cafe: 4 }

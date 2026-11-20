@@ -1,5 +1,5 @@
 // 백엔드 API 호출. 오류는 사용자에게 보여줄 수 있는 문장만 노출한다 (NF3002).
-import type { Area, ChatResponse, Conflict, Health, Plan, RunEvent } from './types'
+import type { Area, ChatResponse, Conflict, Health, Plan, RunEvent, StationItem } from './types'
 
 export class ApiError extends Error {
   constructor(public status: number, public code: string, message: string) {
@@ -60,6 +60,7 @@ async function chatStream(message: string, sessionId: string | null, area: Area 
 export const api = {
   chatStream,
   health: () => request<Health>('/api/health'),
+  stations: () => request<{ stations: StationItem[]; complete: boolean }>('/api/stations'),
   chat: (message: string, sessionId: string | null, area: Area | null) =>
     request<ChatResponse>('/api/chat', {
       method: 'POST',

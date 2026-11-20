@@ -19,15 +19,33 @@ interface Turn {
   error?: string
 }
 
-const AREAS: Area[] = ['강남역', '역삼역']
+const QUICK_AREAS: Area[] = ['강남역', '역삼역'] // 자주 쓰는 역 (나머지는 역 검색)
 const EXAMPLES = [
   '강남역에서 점심 먹고 카공할 건데 추천해줘',
   '역삼역에서 1만 5천 원 이하로 12시에 점심 먹고 카페 가고 싶어',
   '오늘 비가 오는데 강남역에서 점심 먹고 카공하고 싶어. 많이 걷기는 싫어.',
+  '홍대입구역 근처에서 1만원 이하로 점심 먹고 카공',
   '같은 조건에서 한식 말고 일식으로 바꿔줘',
 ]
 
 const area = ref<Area>('강남역')
+// 역 검색: 서버의 역 목록(서울 지하철역)에서 고른다. 목록에 없는 이름은 받지 않는다.
+const stationNames = ref<string[]>([...QUICK_AREAS])
+const stationQuery = ref('')
+const areaError = ref('')
+api.stations().then((r) => { stationNames.value = r.stations.map((s) => s.name) }).catch(() => { /* 목록을 못 받으면 기본 두 역 */ })
+function pickArea(name: string) {
+  const q = name.trim()
+  if (!q) return
+  const hit = stationNames.value.find((s) => s === q) ?? stationNames.value.find((s) => s === `${q}역` || s.startsWith(`${q}역(`))
+  if (!hit) {
+    areaError.value = `'${q}' 은(는) 역 목록에 없어요. 서울 지하철역 이름으로 골라 주세요.`
+    return
+  }
+  areaError.value = ''
+  area.value = hit
+  stationQuery.value = QUICK_AREAS.includes(hit) ? '' : hit
+}
 const input = ref('')
 const turns = ref<Turn[]>([])
 const sessionId = ref<string | null>(null)
@@ -121,10 +139,18 @@ async function scroll() {
     <div class="left">
       <WeatherMascot :weather="latest?.weather" :has-result="!!latest" :policy="latest?.weather_policy" />
       <div class="toolbar card">
-        <div class="area-select" role="radiogroup" aria-label="지역 선택">
+        <div class="area-select" aria-label="지역 선택">
           <span class="muted small">지역</span>
-          <button v-for="a in AREAS" :key="a" class="area-btn" :class="{ on: area === a }" role="radio"
-                  :aria-checked="area === a" @click="area = a">{{ a }}</button>
+          <button v-for="a in QUICK_AREAS" :key="a" class="area-btn" :class="{ on: area === a }" :aria-pressed="area === a"
+                  @click="pickArea(a)">{{ a }}</button>
+          <form class="station-search" @submit.prevent="pickArea(stationQuery)">
+            <input v-model="stationQuery" list="station-list" :placeholder="QUICK_AREAS.includes(area) ? '다른 역 검색' : area"
+                   aria-label="다른 역 검색" maxlength="30" :class="{ on: !QUICK_AREAS.includes(area) }" @change="pickArea(stationQuery)" />
+            <datalist id="station-list">
+              <option v-for="s in stationNames" :key="s" :value="s" />
+            </datalist>
+          </form>
+          <span v-if="areaError" class="small area-error" role="alert">{{ areaError }}</span>
         </div>
         <button class="btn" @click="newConversation">새 대화</button>
       </div>
@@ -134,7 +160,7 @@ async function scroll() {
         <div ref="listEl" class="turns">
           <div v-if="!turns.length" class="welcome">
             <h2>오늘은 어디서 먹고, 어디서 공부할까요?</h2>
-            <p class="muted">조건을 말하면 메뉴 가격·영업시간·날씨를 확인해서 식당과 근처 카페를 함께 골라 드려요.
+            <p class="muted">서울 지하철역 주변에서, 조건을 말하면 메뉴 가격·영업시간·날씨를 확인해서 식당과 근처 카페를 함께 골라 드려요.
               확인되지 않은 정보는 ‘미확인’으로 표시해요.</p>
             <div class="examples">
               <button v-for="ex in EXAMPLES" :key="ex" class="btn example" @click="send(ex)">{{ ex }}</button>
@@ -213,6 +239,9 @@ async function scroll() {
 .area-select { display: flex; align-items: center; gap: 6px; }
 .area-btn { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 6px 14px; }
 .area-btn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.station-search input { width: 9.5em; border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; background: #fff; }
+.station-search input.on { border-color: var(--accent); background: var(--accent-soft); font-weight: 700; }
+.area-error { color: var(--warn); flex-basis: 100%; }
 .toolbar > .btn { margin-left: auto; }
 .chat { display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 22px; }
 .turns { max-height: min(56vh, 560px); min-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 4px; }

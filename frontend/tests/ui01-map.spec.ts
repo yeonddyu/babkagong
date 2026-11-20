@@ -85,8 +85,8 @@ describe('카드 ↔ 지도 상태 연동 (공통 상태)', () => {
   it('카드에서 카페를 바꾸면 지도·타임라인·저장 요청이 같은 카페를 쓴다', async () => {
     const fetch = mockChat(() => makeResult({ recommendations: [makeRec({ cafes: threeCafes() }), makeRec({ name: '라멘가게', source_id: '6' })] }))
     const w = mount(ChatView, { global: { plugins: [makeRouter()] } })
-    await w.find('input').setValue('강남역 점심')
-    await w.find('form').trigger('submit')
+    await w.find('form.composer input').setValue('강남역 점심')
+    await w.find('form.composer').trigger('submit')
     await flushPromises()
     const card = w.findAll('article.rec')[0]!
     await card.findAll('details.more button')[1]!.trigger('click') // 카페C 로 바꾸기
@@ -103,8 +103,8 @@ describe('카드 ↔ 지도 상태 연동 (공통 상태)', () => {
   it('지도에서 2번 코스 식당을 누르면 2번 카드가 강조되고 정보 카드가 열린다', async () => {
     mockChat(() => makeResult())
     const w = mount(ChatView, { global: { plugins: [makeRouter()] } })
-    await w.find('input').setValue('강남역 점심')
-    await w.find('form').trigger('submit')
+    await w.find('form.composer input').setValue('강남역 점심')
+    await w.find('form.composer').trigger('submit')
     await flushPromises()
     await w.findAll('.svg-pin.meal')[1]!.trigger('click')
     expect(courseState.selected).toBe(1)
@@ -178,8 +178,8 @@ describe('출구 기준 (N번 출구 근처)', () => {
   it('추천 카드의 거리도 기준점 이름으로 표시한다', async () => {
     mockChat(() => makeResult({ origin, recommendations: [makeRec({ distance_from: '강남역 11번 출구', distance_m: 88 })] }))
     const w = mount(ChatView, { global: { plugins: [makeRouter()] } })
-    await w.find('input').setValue('강남역 11번 출구 근처 점심')
-    await w.find('form').trigger('submit')
+    await w.find('form.composer input').setValue('강남역 11번 출구 근처 점심')
+    await w.find('form.composer').trigger('submit')
     await flushPromises()
     expect(w.find('article.rec').text()).toContain('강남역 11번 출구에서 직선 88m')
     expect(w.findAll('aside.mapside .svg-pin.exit')).toHaveLength(1)

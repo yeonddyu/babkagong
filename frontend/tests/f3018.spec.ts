@@ -90,10 +90,10 @@ describe('ChatView', () => {
     const router = makeRouter()
     const w = mount(ChatView, { global: { plugins: [router] } })
     await w.findAll('.area-btn')[1]!.trigger('click')
-    await w.find('input').setValue('점심 추천')
-    await w.find('form').trigger('submit')
+    await w.find('form.composer input').setValue('점심 추천')
+    await w.find('form.composer').trigger('submit')
     await flushPromises()
-    const [url, init] = fetch.mock.calls.find(([u]) => u !== '/api/health')!
+    const [url, init] = fetch.mock.calls.find(([u]) => u !== '/api/health' && u !== '/api/stations')!
     expect(url).toBe('/api/chat/stream')
     expect(JSON.parse(init!.body as string)).toEqual({ message: '점심 추천', session_id: null, area: '역삼역' })
     expect(w.text()).toContain('추천 결과예요')

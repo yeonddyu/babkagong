@@ -45,7 +45,7 @@ export function haversineM(a: [number, number], b: [number, number]): number {
   return 2 * R * Math.asin(Math.sqrt(h))
 }
 
-// 서비스 지역 기준점 (백엔드 app/core/geo.py 의 STATIONS 와 같은 값)
+// 응답에 기준점(origin)이 없을 때 쓰는 기본 두 역 좌표 (백엔드 app/datasets/stations.py BUILTIN 과 같은 값)
 export const STATIONS: Record<string, [number, number]> = {
   강남역: [37.497952, 127.027619],
   역삼역: [37.500622, 127.036456],

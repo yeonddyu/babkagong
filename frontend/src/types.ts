@@ -1,6 +1,6 @@
 // 백엔드 응답 타입 (docs/api_spec.md)
 
-export type Area = '강남역' | '역삼역'
+export type Area = string // 서울 지하철역 이름 (예: '강남역', '홍대입구역')
 
 export interface Check {
   criterion: string
@@ -140,3 +140,5 @@ export interface Origin {
   source: string
   place_url?: string | null
 }
+
+export interface StationItem { name: string; lines: string[]; latitude: number; longitude: number }
