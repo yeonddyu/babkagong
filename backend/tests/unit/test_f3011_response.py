@@ -66,30 +66,6 @@ def test_non_tool_responses(make_settings):
     assert clarify["clarify"] is True and "선정릉" in clarify["message"]
 
 
-def test_llm_message_only_when_available(make_settings):
-    class StubLLM:
-        def __init__(self):
-            self.seen = None
-
-        def with_structured_output(self, schema):
-            raise RuntimeError("분석은 규칙으로")  # 분석 단계 LLM 실패 → 규칙 대체
-
-        def invoke(self, messages):
-            self.seen = messages
-            return type("Msg", (), {"content": self.reply})()
-
-    llm = StubLLM()
-    llm.reply = ("1. 김치찌개집 — 카페1 (직선 30m)\n2. 일요일휴무 백반 — 카페1 (직선 30m)\n3. 칼국수집 — 카페1 (직선 30m)\n"
-                 "카페 영업시간·콘센트·와이파이·혼잡도는 확인되지 않았어요")
-    body = run(make_settings, "강남역 1만원 이하 12시 점심", llm=llm)
-    assert body["message_by"] == "llm" and body["message"] == llm.reply
-    assert "김치찌개집" in llm.seen[1][1]  # 확정된 JSON 만 근거로 전달
-    # 카페(보조 정보)나 미확인 안내가 빠진 LLM 문장은 쓰지 않고 템플릿으로 대체
-    llm.reply = "김치찌개집을 추천해요. 분위기가 아주 좋아요!"
-    body2 = run(make_settings, "강남역 1만원 이하 12시 점심", llm=llm)
-    assert body2["message_by"] == "template" and "카페1" in body2["message"]
-
-
 def test_user_reported_rain_vs_forecast_notice(make_settings):
     body = run(make_settings, "비가 오는데 강남역 점심 추천")  # 예보는 강수확률 20%
     assert any("말씀하신 날씨(비)" in n for n in body["notices"])

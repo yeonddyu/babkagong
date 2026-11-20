@@ -300,7 +300,7 @@ class MainAgent:
         body = build_response(
             state["analysis"], state["conditions"], state.get("plan"), state.get("data"), state.get("evaluation"),
             state.get("executor"), state.get("replan_history", []), state.get("stop_reason"),
-            state.get("changed_fields", []), self.llm, save_result=state.get("save_result"),
+            state.get("changed_fields", []), save_result=state.get("save_result"),
             excluded_shown=len(state.get("exclude_keys") or []),
         )
         return {"response": body}

@@ -43,10 +43,5 @@ def test_agent_end_to_end_with_llm(live_settings, llm):
     agent = MainAgent(build_default_registry(live_settings), llm=llm)
     body = agent.run("역삼역에서 1만 5천원 이하로 12시에 점심 먹고 카공할래")["response"]
     assert body["decided_by"] == "llm" and body["recommendations"] and body["message"]
-    # LLM 문장은 확정 결과의 숫자만 쓰고 확인할 수 없는 단정이 없을 때만 쓰이며, 아니면 템플릿 (Codex 2차 검증 결함 2)
-    assert body["message_by"] in ("llm", "template")
-    if body["message_by"] == "llm":
-        from app.agent.respond import _llm_facts_only
-
-        assert _llm_facts_only(body["message"], body)
+    assert body["message_by"] == "template"
     assert body["recommendations"][0]["name"].split("(")[0] in body["message"]

@@ -21,7 +21,7 @@ flowchart LR
   AG -->|publish| BUS{{Event Bus}}
   BUS -->|subscribe| LA[Logging Agent<br/>LLM 미사용]
   LA --> LR
-  AG -->|analysis/text| LLM[llm_provider<br/>SSAFY GMS · OpenAI 호환]
+  AG -->|analysis| LLM[llm_provider<br/>SSAFY GMS · OpenAI 호환]
   AG --> MEM[(Session Memory<br/>조건·추천 요약)]
   PR & LR & MEM --> DB[(SQLite)]
 ```

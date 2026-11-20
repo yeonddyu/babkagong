@@ -2,52 +2,52 @@
 from __future__ import annotations
 
 from app.agent.graph import MainAgent
-from app.agent.respond import _count_line, _llm_facts_only, _summary
+from app.agent.respond import _count_line, _summary
 from tests.unit.agent_fixtures import TODAY, kakao_handler, make_registry, make_session
 
 
 class FakeMessageLLM:
-    """분석은 실패시키고(규칙 사용), 응답 문장 생성만 주어진 문장을 돌려준다."""
+    """분석은 규칙으로 넘어가며, 문장을 요청하면 잘못된 가격과 편의시설을 반환한다."""
 
     def __init__(self, text):
         self.text = text
+        self.response_calls = 0
 
     def with_structured_output(self, schema):
         raise RuntimeError("분석은 규칙 사용")
 
     def invoke(self, _messages):
+        self.response_calls += 1
         return type("Msg", (), {"content": self.text})()
 
 
-def run(make_settings, llm_text, kakao=None):
+def run(make_settings, llm=None, kakao=None):
     agent = MainAgent(make_registry(make_settings, make_session(kakao=kakao)), today_fn=lambda: TODAY,
-                      llm=FakeMessageLLM(llm_text))
+                      llm=llm, seed_fn=lambda: 1)
     return agent.run("강남역 1만원 이하로 12시 점심 먹고 카공")["response"]
 
 
-def names_line(body):
-    return " / ".join(f"{r['name']} {r['cafes'][0]['name'] if r['cafes'] else ''}" for r in body["recommendations"])
+def test_full_message_keeps_distance_price_and_amenities_separate(make_settings):
+    base = run(make_settings)
+    top = base["recommendations"][0]
+    distance = top["distance_m"]
+    price = top["matched_menus"][0]["price_krw"]
+    assert distance != price
+    names = " / ".join(f"{r['name']} {r['cafes'][0]['name']}" for r in base["recommendations"])
+    llm = FakeMessageLLM(f"{names}. 메뉴 가격은 {distance}원. 콘센트 제공이며 영업시간 미확인.")
 
+    body = run(make_settings, llm)
 
-def test_llm_message_with_invented_price_or_amenity_is_rejected(make_settings):
-    base = run(make_settings, "x")  # 템플릿
-    names = names_line(base)
-    bad = run(make_settings, f"{names}. 식당 500원, 카페 콘센트 보장. 영업시간 미확인")
-    assert bad["message_by"] == "template" and "500원" not in bad["message"] and "보장" not in bad["message"]
-    good = run(make_settings, f"{names}. 카페 영업시간·콘센트·와이파이·혼잡도는 확인되지 않았어요")
-    assert good["message_by"] == "llm"
-
-
-def test_facts_only_rules():
-    body = {"recommendations": [{"name": "김치찌개집", "matched_menus": [{"name": "김치찌개", "price_krw": 9000}], "distance_m": 120}]}
-    assert _llm_facts_only("1. 김치찌개집 김치찌개 9,000원, 역에서 120m", body)
-    assert not _llm_facts_only("김치찌개집 8,000원", body)  # 결과에 없는 가격
-    assert not _llm_facts_only("김치찌개집은 분위기가 조용해요", body)  # 확인할 수 없는 단정
-    assert _llm_facts_only("콘센트·와이파이는 확인되지 않았어요", body)  # 미확인 안내는 허용
+    assert llm.response_calls == 0
+    assert body["message_by"] == "template"
+    assert body["message"] == base["message"]
+    assert f"직선 {distance}m" in body["message"] and f"{price:,}원" in body["message"]
+    assert f"{distance}원" not in body["message"] and "콘센트 제공" not in body["message"]
+    assert "확인이 필요합니다" in body["message"]
 
 
 def test_summary_counts_only_courses_with_cafe(make_settings):
-    body = run(make_settings, "x", kakao=kakao_handler(empty=True))  # 카페 조회 결과 없음
+    body = run(make_settings, kakao=kakao_handler(empty=True))  # 카페 조회 결과 없음
     recs = body["recommendations"]
     assert recs and all(not r["cafes"] for r in recs)
     assert body["summary"].startswith(f"조건에 맞는 식당 {len(recs)}곳을 찾았어요. 식사 후 카페까지 확인된 코스는 0개")
