@@ -1,6 +1,6 @@
 // 백엔드 응답 타입 (docs/api_spec.md)
 
-export type Area = string // 서울 지하철역 이름 (예: '강남역', '홍대입구역')
+export type Area = string // 서비스 역 이름 (역삼역·강남역·언주역·신논현역·선릉역·선정릉역)
 
 export interface Check {
   criterion: string

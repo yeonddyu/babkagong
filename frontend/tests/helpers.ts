@@ -42,7 +42,7 @@ export function mockChat(result: () => unknown) {
   const fn = vi.fn(async (url: string, _init?: RequestInit) => {
     if (url === '/api/stations') {
       const st = (name: string) => ({ name, lines: ['2호선'], latitude: 37.5, longitude: 127.0 })
-      return { ok: true, status: 200, json: async () => ({ stations: ['강남역', '역삼역', '홍대입구역', '신촌역(2호선)'].map(st), complete: true }) } as Response
+      return { ok: true, status: 200, json: async () => ({ stations: ['역삼역', '강남역', '언주역', '신논현역', '선릉역', '선정릉역'].map(st), complete: true }) } as Response
     }
     if (url === '/api/health') {
       return { ok: true, status: 200, json: async () => ({ status: 'ok', api_keys: {}, llm: { available: true, provider: 'gms' }, tools: [], max_replans: 3 }) } as Response

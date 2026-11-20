@@ -95,34 +95,18 @@ describe('응답 문장 표시', () => {
   })
 })
 
-describe('역 선택 (서울 지하철역)', () => {
-  async function mounted() {
+describe('역 선택 (역삼역 주변 6곳)', () => {
+  it('서비스 역 6곳을 버튼으로 보여 주고, 고른 역으로 요청한다', async () => {
     const fetch = mockChat(() => makeResult())
     const w = mount(ChatView, { global: { plugins: [makeRouter()] } })
     await flushPromises()
-    return { w, fetch }
-  }
-
-  it('역 검색으로 목록에 있는 역을 고르면 그 역으로 요청한다 (역 없이 써도 됨)', async () => {
-    const { w, fetch } = await mounted()
-    const search = w.find('.station-search input')
-    expect(w.findAll('#station-list option').map((o) => o.attributes('value'))).toContain('홍대입구역')
-    await search.setValue('홍대입구')
-    await w.find('.station-search').trigger('submit')
-    expect(w.find('.station-search input').classes()).toContain('on')
-    expect(w.findAll('.area-btn.on')).toHaveLength(0)
+    expect(w.findAll('.area-btn').map((b) => b.text())).toEqual(['역삼역', '강남역', '언주역', '신논현역', '선릉역', '선정릉역'])
+    await w.findAll('.area-btn')[4]!.trigger('click')
+    expect(w.find('.area-btn.on').text()).toBe('선릉역')
     await w.find('form.composer input').setValue('점심 먹고 카공')
     await w.find('form.composer').trigger('submit')
     await flushPromises()
     const body = JSON.parse(fetch.mock.calls.find(([u]) => u === '/api/chat/stream')![1]!.body as string)
-    expect(body.area).toBe('홍대입구역')
-  })
-
-  it('목록에 없는 이름은 받지 않고 이유를 알려 준다', async () => {
-    const { w } = await mounted()
-    await w.find('.station-search input').setValue('부산역')
-    await w.find('.station-search').trigger('submit')
-    expect(w.find('.area-error').text()).toContain('역 목록에 없어요')
-    expect(w.find('.area-btn.on').text()).toBe('강남역')
+    expect(body.area).toBe('선릉역')
   })
 })
