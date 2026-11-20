@@ -48,6 +48,32 @@ cd frontend && npm run dev
 cd backend && ../.venv/bin/python -m scripts.build_cache
 ```
 
+## 실제 웹 실행 화면
+
+### 식사·카공 추천과 카카오 지도
+
+역삼역 점심 요청에 추천 코스와 지도 위치를 표시한 화면입니다.
+
+![식사·카공 추천과 카카오 지도](docs/verification_screens/02-recommendation-map.png)
+
+### Agent의 추천 실행 과정
+
+요청 분석에 이어 날씨, 음식점 후보, 상세정보, 카페 조회가 실행된 순서를 보여 줍니다.
+
+![Agent의 추천 실행 과정](docs/verification_screens/03-tool-timeline.png)
+
+### 저장한 식사·카공 계획
+
+저장한 식당·카페, 날짜·시각과 지도 위치를 조회한 화면입니다.
+
+![저장한 식사·카공 계획](docs/verification_screens/04-plan-detail.png)
+
+### 재계획 상한 도달
+
+예산 1천 원 이하 요청에서 충족 후보를 찾지 못해 세 차례 재계획한 뒤 중단한 화면입니다.
+
+![재계획 상한 도달](docs/verification_screens/07-replan-limit.png)
+
 ## 테스트
 ```bash
 cd backend && ../.venv/bin/python -m pytest                      # Mock 단위 테스트 (259)
@@ -72,6 +98,7 @@ cd frontend && npm test && npm run build                          # vitest 78, �
 | [docs/test_plan.md](docs/test_plan.md) | 테스트 계획 |
 | [docs/scenario_results.md](docs/scenario_results.md) | 대표 시나리오 결과, [docs/samples/](docs/samples) 실행 로그 샘플 |
 | [docs/implementation_report.md](docs/implementation_report.md) | 구현 결과 보고 |
+| [셀프체크리스트_최종검증.xlsx](셀프체크리스트_최종검증.xlsx) | 최종 제출 점검 결과 |
 
 ## 현재 제한
 - LLM: SSAFY GMS(gpt-4o-mini)로 요청을 분석하고, 키가 없거나 분석이 실패하면 규칙을 적용합니다. 응답 문장은 구조화된 결과로 생성합니다.
