@@ -32,14 +32,21 @@ def test_llm_analysis_extracts_only_stated_conditions(llm):
 
 
 def test_llm_analysis_smalltalk(llm):
+    # 확정적인 인사는 LLM 을 부르지 않고 규칙으로 처리한다 (Codex 2차 검증 결함 6)
     r = analyze("안녕!", date(2026, 11, 19), llm)
-    assert r.decided_by == "llm" and r.intent == "smalltalk" and r.conditions.filled_fields() == {}
+    assert r.decided_by == "rule" and r.intent == "smalltalk" and r.conditions.filled_fields() == {}
+    mixed = analyze("안녕, 역삼역 점심 추천해 줘", date(2026, 11, 19), llm)
+    assert mixed.decided_by == "llm" and mixed.intent == "recommend" and mixed.conditions.preference.area == "역삼역"
 
 
 def test_agent_end_to_end_with_llm(live_settings, llm):
     agent = MainAgent(build_default_registry(live_settings), llm=llm)
     body = agent.run("역삼역에서 1만 5천원 이하로 12시에 점심 먹고 카공할래")["response"]
-    assert body["decided_by"] == "llm" and body["recommendations"]
-    assert body["message_by"] == "llm" and body["message"]
-    # LLM 문장은 확정된 추천 이름을 벗어나지 않아야 한다
+    assert body["decided_by"] == "llm" and body["recommendations"] and body["message"]
+    # LLM 문장은 확정 결과의 숫자만 쓰고 확인할 수 없는 단정이 없을 때만 쓰이며, 아니면 템플릿 (Codex 2차 검증 결함 2)
+    assert body["message_by"] in ("llm", "template")
+    if body["message_by"] == "llm":
+        from app.agent.respond import _llm_facts_only
+
+        assert _llm_facts_only(body["message"], body)
     assert body["recommendations"][0]["name"].split("(")[0] in body["message"]
