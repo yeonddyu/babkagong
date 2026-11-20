@@ -29,7 +29,7 @@ def build_default_registry(settings: Settings | None = None, *, session=None, to
     redtable_details = RedtableDetailDataset(redtable_client, cache, redtable_restaurants)
     gangnam_license = GangnamLicenseDataset(seoul_client, cache)
 
-    stations = StationDirectory(seoul_client, cache, redtable_restaurants)
+    stations = StationDirectory()  # 서비스 역 6곳 (역삼역과 가까운 역)
 
     registry = ToolRegistry()
     registry.stations = stations  # Agent 가 발화에서 역을 찾고 인접 역을 고를 때 사용 (코드 판단, Tool 아님)

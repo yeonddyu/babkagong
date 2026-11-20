@@ -62,7 +62,7 @@ NON_MEAL_NAME = re.compile(
 
 
 class RestaurantSearchInput(BaseModel):
-    area: str = Field(min_length=2, max_length=30, description="검색할 서울 지하철역 이름 (예: '강남역', '홍대입구역')")
+    area: str = Field(min_length=2, max_length=30, description="서비스 역 이름: 역삼역·강남역·언주역·신논현역·선릉역·선정릉역")
     food_type: FoodType | None = Field(default=None, description="음식 종류. 생략하면 전체")
     reference_date: date | None = Field(
         default=None, description="영업 여부 판단 기준일(YYYY-MM-DD). 생략하면 오늘(KST)"
@@ -138,7 +138,7 @@ class RestaurantSearchOutput(BaseModel):
 
 
 DESCRIPTION = (
-    "서울 지하철역 주변에서 식사할 음식점 후보 목록이 필요할 때 사용한다. "
+    "역삼역 주변 서비스 역(역삼·강남·언주·신논현·선릉·선정릉)에서 식사할 음식점 후보 목록이 필요할 때 사용한다. "
     "음식 종류(한식/중식/일식/양식/분식/기타)와 영업 기준일로 거른 후보를 거리순으로 돌려준다. "
     "각 후보의 source 와 source_id 는 get_restaurant_details 에 그대로 넘겨 메뉴·가격·영업시간을 확인한다. "
     "카페는 이 Tool 이 아니라 search_nearby_cafes 로 찾는다."
@@ -237,7 +237,7 @@ def create_tool(
         today = today_fn()
         station = (stations or StationDirectory(None, None)).get(params.area, refresh=True)
         if station is None:
-            raise ToolError(ErrorCode.INVALID_INPUT, f"서비스 역 목록에서 '{params.area}' 을(를) 찾지 못했습니다. 서울 지하철역 이름으로 다시 요청해 주세요.")
+            raise ToolError(ErrorCode.INVALID_INPUT, f"서비스 역 목록에서 '{params.area}' 을(를) 찾지 못했습니다. 서비스 역(역삼·강남·언주·신논현·선릉·선정릉) 중에서 다시 요청해 주세요.")
         params = params.model_copy(update={"area": station.name})
         center = (station.latitude, station.longitude)
         radius = params.radius_m or SEARCH_RADIUS_M

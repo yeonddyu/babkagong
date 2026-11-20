@@ -6,7 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-Area = str  # 서울 지하철역 표시 이름 (예: "강남역", "홍대입구역"). 역 목록(StationDirectory)으로 확인한 값만 들어간다
+Area = str  # 서비스 역 이름 (역삼역·강남역·언주역·신논현역·선릉역·선정릉역). StationDirectory 로 확인한 값만 들어간다
 FoodType = Literal["한식", "중식", "일식", "양식", "분식", "기타"]
 MealPeriod = Literal["아침", "점심", "저녁"]
 Intent = Literal["recommend", "smalltalk", "help", "save_plan", "out_of_scope"]
@@ -73,3 +73,4 @@ class AnalysisResult(BaseModel):
     reset: bool = Field(default=False, description="이전 맥락을 버리고 새로 시작")
     mentions_health: bool = Field(default=False, description="알레르기·질환 등 건강 관련 언급")
     user_reported_weather: str | None = Field(default=None, description="사용자가 말한 날씨 (참고용, 판단은 기상청 값 사용)")
+    unsupported_area: str | None = Field(default=None, description="서비스 역이 아닌 역을 말한 경우 그 이름 (안내용, 코드가 채움)")

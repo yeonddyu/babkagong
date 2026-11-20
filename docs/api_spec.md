@@ -4,7 +4,7 @@ Base: `http://localhost:8000`, 문서: `/docs` (Swagger), `/openapi.json`
 
 | 메서드 | 경로 | 설명 | 요구사항 |
 |---|---|---|---|
-| GET | `/api/stations` | 추천 가능한 서울 지하철역 목록 `{stations:[{name, lines, latitude, longitude}], complete}` (`complete=false` 면 목록 준비 전이라 강남역·역삼역만) | - |
+| GET | `/api/stations` | 서비스 역 목록 (역삼역 주변 6곳) `{stations:[{name, lines, latitude, longitude}], complete}` | - |
 | GET | `/api/health` | 서버 상태, API 키 **존재 여부**(값 미노출), LLM 사용 가능 여부 | F3019 |
 | POST | `/api/chat` | 대화 요청 → Agent 실행 결과 + 실행 이벤트 | F3005~F3012 |
 | GET | `/api/plans` | 계획 목록 (`?date=YYYY-MM-DD`) | F3015 |
@@ -21,7 +21,7 @@ Base: `http://localhost:8000`, 문서: `/docs` (Swagger), `/openapi.json`
 ## POST /api/chat
 요청
 ```json
-{"session_id": "선택, 없으면 새로 발급", "message": "강남역에서 점심 먹고 카공할 건데 추천해줘", "area": "서울 지하철역 이름(선택, UI 선택값, 역 목록에 없으면 무시)"}
+{"session_id": "선택, 없으면 새로 발급", "message": "강남역에서 점심 먹고 카공할 건데 추천해줘", "area": "서비스 역 이름(선택, UI 선택값, 서비스 역이 아니면 무시)"}
 ```
 응답 (주요 필드)
 ```json

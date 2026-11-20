@@ -13,6 +13,7 @@ from app.clients.seoul_opendata import SERVICE_GANGNAM_GENERAL_RESTAURANT, SERVI
 from app.core.geo import LOCALDATA_CRS, tm_to_wgs84, to_float
 from app.datasets.cache import JsonCache
 from app.datasets.sqlite_store import SqliteRows
+from app.datasets.stations import within_service_area
 
 SOURCE_REDTABLE = "seoul_tourism_redtable"  # 서울관광재단 음식관광 API 식당기본정보
 SOURCE_GANGNAM_LICENSE = "gangnam_general_restaurant_license"  # 강남구 일반음식점 인허가 정보
@@ -98,9 +99,9 @@ def normalize_redtable_restaurant(row: dict[str, Any]) -> RestaurantRecord | Non
 
 
 class RedtableRestaurantDataset:
-    """서울관광재단 식당기본정보 — 서울 전역을 SQLite 에 보관하고 좌표 반경으로 조회한다."""
+    """서울관광재단 식당기본정보 — 서비스 역 6곳 주변(1.5km)만 SQLite 에 보관하고 좌표 반경으로 조회한다."""
 
-    STORE_NAME = "redtable_rstr_seoul"
+    STORE_NAME = "redtable_rstr_area"
 
     def __init__(self, client: RedtableClient, cache: JsonCache):
         self.client = client
@@ -115,7 +116,8 @@ class RedtableRestaurantDataset:
                 for row in page.rows:
                     stats["scanned_rows"] += 1
                     rec = normalize_redtable_restaurant(row)
-                    if rec and rec.latitude is not None and rec.longitude is not None:
+                    if rec and rec.latitude is not None and rec.longitude is not None \
+                            and within_service_area(rec.latitude, rec.longitude):
                         stats["kept"] += 1
                         yield rec.source_id, rec.latitude, rec.longitude, rec.to_dict()
 
@@ -191,7 +193,7 @@ def license_open_on(rec: RestaurantRecord, day: date, today: date) -> bool:
 class GangnamLicenseDataset:
     """강남구 인허가 데이터셋. 기본은 일반음식점, rest_food() 는 휴게음식점(카페류)."""
 
-    CACHE_NAME = "gangnam_license_all"
+    CACHE_NAME = "gangnam_license_area6"
 
     def __init__(
         self,
@@ -212,7 +214,7 @@ class GangnamLicenseDataset:
 
     @classmethod
     def rest_food(cls, client: SeoulOpenDataClient, cache: JsonCache) -> "GangnamLicenseDataset":
-        return cls(client, cache, service=SERVICE_GANGNAM_REST_FOOD, cache_name="gangnam_rest_food_all",
+        return cls(client, cache, service=SERVICE_GANGNAM_REST_FOOD, cache_name="gangnam_rest_food_area6",
                    source=SOURCE_GANGNAM_REST_FOOD, license_type="휴게음식점")
 
     def _build(self):
@@ -226,7 +228,7 @@ class GangnamLicenseDataset:
             upd = rec.extra.get("updated_at")
             if upd and (latest_update is None or upd > latest_update):
                 latest_update = upd
-            if rec.latitude is not None:  # 강남구 전체 (서울 전역 역 확장 후 강남구 안의 다른 역에서도 쓰도록)
+            if rec.latitude is not None and within_service_area(rec.latitude, rec.longitude):  # 서비스 역 주변만
                 kept.append(rec.to_dict())
         return kept, {"source_total_count": page.total_count, "scanned_rows": len(page.rows), "data_updated_at": latest_update}
 
@@ -243,7 +245,7 @@ OPERATION_FIELDS = ("BSNS_TM_CN", "RESTDY_INFO_CN", "WIFI_OFR_YN", "PRKG_POS_YN"
 
 
 class RedtableDetailDataset:
-    """메뉴정보(한국어)·식당운영정보 — 서울 전역을 식당 ID(RSTR_ID)별로 SQLite 에 보관한다.
+    """메뉴정보(한국어)·식당운영정보 — 서비스 지역 식당 ID(RSTR_ID)의 행만 SQLite 에 보관한다.
 
     두 API 모두 식당 ID 필터가 없어 전체 페이지를 순회한다. 같은 출처(레드테이블)의 RSTR_ID 로만 연결한다.
     상세 Tool 이 쓰는 필드만 저장한다 (MENU_FIELDS, OPERATION_FIELDS).
@@ -251,12 +253,17 @@ class RedtableDetailDataset:
 
     def __init__(self, client: RedtableClient, cache: JsonCache, restaurants: RedtableRestaurantDataset | None = None):
         self.client = client
-        self.menu_store = SqliteRows(cache, "redtable_menu_seoul")
-        self.operation_store = SqliteRows(cache, "redtable_oprt_seoul")
+        self.restaurants = restaurants
+        self.menu_store = SqliteRows(cache, "redtable_menu_area")
+        self.operation_store = SqliteRows(cache, "redtable_oprt_area")
 
     def _builder(self, endpoint: str, fields: tuple[str, ...]):
         def build():
-            stats = {"scanned_rows": 0, "source_total_count": 0}
+            stats = {"scanned_rows": 0, "source_total_count": 0, "kept": 0}
+            ids = None
+            if self.restaurants is not None:
+                self.restaurants.ensure()
+                ids = self.restaurants.store.all_keys()  # 서비스 지역 식당의 행만 저장
 
             def rows():
                 for page in self.client.iter_all(endpoint):
@@ -264,7 +271,8 @@ class RedtableDetailDataset:
                     for row in page.rows:
                         stats["scanned_rows"] += 1
                         rid = _text(row.get("RSTR_ID"))
-                        if rid:
+                        if rid and (ids is None or rid in ids):
+                            stats["kept"] += 1
                             yield rid, None, None, {k: row.get(k) for k in fields}
 
             return rows(), lambda: dict(stats)

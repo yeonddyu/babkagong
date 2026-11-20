@@ -175,11 +175,11 @@ def test_invalid_input(make_settings, args):
     assert session.calls == []
 
 
-def test_unknown_station_is_invalid_after_one_station_list_refresh(make_settings):
-    """역 목록에 없는 이름은 목록을 한 번 받아 다시 확인한 뒤 INVALID_INPUT (식당 데이터는 조회하지 않음)."""
+def test_unknown_station_is_invalid_without_calls(make_settings):
+    """서비스 역(역삼역 주변 6곳)이 아니면 외부 호출 없이 INVALID_INPUT."""
     session = default_session()
-    assert fail_code(make_registry(make_settings, session).invoke(TOOL, {"area": "없는역"})) == "INVALID_INPUT"
-    assert [c["url"] for c in session.calls] and all("subwayStationMaster" in c["url"] for c in session.calls)
+    assert fail_code(make_registry(make_settings, session).invoke(TOOL, {"area": "홍대입구역"})) == "INVALID_INPUT"
+    assert session.calls == []
 
 
 def test_missing_all_api_keys(make_settings):

@@ -42,13 +42,13 @@ def test_replan_next_batch_reuses_results(make_settings):
 
 
 def test_replan_adjacent_area(make_settings):
-    # 강남역 후보는 모두 예산 초과, 역삼역에 예산 이하 후보 존재
+    # 강남역 후보는 모두 예산 초과, 역삼역에 예산 이하 후보 존재. 강남역에서 가까운 순: 신논현역(후보 없음) → 역삼역
     rows = [rt_row(2, "스시하우스", 37.4983, 127.0279, cat="일식")] + YEOKSAM
     r = agent(make_settings, make_session(rt_rows=rows)).run("강남역 9천원 이하 점심")
     strategies = [h["strategy"] for h in r["replans"]]
-    assert strategies == ["adjacent_area"]
+    assert strategies == ["adjacent_area", "adjacent_area"]
     assert [e.name for e in r["evaluation"].satisfied] == ["역삼 백반"]
-    assert r["data"].areas_searched == ["강남역", "역삼역"]
+    assert r["data"].areas_searched == ["강남역", "신논현역", "역삼역"]
 
 
 def test_replan_limit_reached_stops_with_reason(make_settings):
@@ -67,7 +67,19 @@ def test_missing_key_is_not_replanned(make_settings):
 
 
 def test_no_alternative_stops(make_settings):
+    """2km 안 서비스 역을 가까운 순으로 모두 찾은 뒤에야 '대안 없음' 으로 멈춘다 (상한을 넉넉히 둔 경우)."""
+    from app.agent.graph import MainAgent
+    from app.datasets.stations import StationDirectory
+    from tests.unit.agent_fixtures import TODAY, make_registry
+
     rows = [rt_row(2, "스시하우스", 37.4983, 127.0279, cat="일식")]
-    r = agent(make_settings, make_session(rt_rows=rows)).run("강남역 5천원 이하 점심")
-    assert [h["strategy"] for h in r["replans"]] == ["adjacent_area", "none"]
+    r = MainAgent(make_registry(make_settings, make_session(rt_rows=rows)), today_fn=lambda: TODAY, max_replans=10).run("강남역 5천원 이하 점심")
+    strategies = [h["strategy"] for h in r["replans"]]
+    from app.core.geo import haversine_m
+
+    g = StationDirectory().get("강남역")
+    within_2km = {s.name for s in StationDirectory().stations()
+                  if s.name != "강남역" and haversine_m(g.latitude, g.longitude, s.latitude, s.longitude) <= 2000}
+    assert strategies[-1] == "none" and set(strategies[:-1]) == {"adjacent_area"}
+    assert set(r["data"].areas_searched) == {"강남역"} | within_2km  # 2km 안 역을 모두 찾은 뒤 멈춤
     assert r["stop_reason"] == "탐색 가능한 대안이 없음"

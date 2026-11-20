@@ -130,5 +130,9 @@ class SqliteRows:
                 if d <= radius_m:
                     yield d, json.loads(r["data"])
 
+    def all_keys(self) -> set[str]:
+        with self._connect() as con:
+            return {r["key"] for r in con.execute("SELECT DISTINCT key FROM rows")}
+
     def count_near(self, lat: float, lng: float, radius_m: float) -> int:
         return sum(1 for _ in self.near(lat, lng, radius_m))

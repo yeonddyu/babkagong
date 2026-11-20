@@ -16,7 +16,7 @@ from app.agent.conditions import AnalysisResult, Conditions
 
 from app.datasets.stations import StationDirectory
 
-DEFAULT_STATIONS = StationDirectory(None, None)  # 역 목록 없이 쓸 때 (강남역·역삼역)
+DEFAULT_STATIONS = StationDirectory()  # 서비스 역 6곳
 
 logger = logging.getLogger(__name__)
 
@@ -230,11 +230,12 @@ def rule_analyze(message: str, today: date, stations: StationDirectory | None = 
         more=bool(MORE_PATTERN.search(text)) and not reset,
         reset=reset, mentions_health=any(w in text for w in HEALTH_WORDS),
         user_reported_weather=weather,
+        unsupported_area=None if station else (stations or DEFAULT_STATIONS).mentioned_other_station(text),
     )
 
 
 # ---------------------------------------------------------------- LLM 분석
-LLM_SYSTEM = """너는 서울 지하철역 주변 식사+카공 카페 추천 서비스 '밥카공'의 요청 분석기다.
+LLM_SYSTEM = """너는 역삼역(SSAFY) 주변 6개 역(역삼·강남·언주·신논현·선릉·선정릉) 식사+카공 카페 추천 서비스 '밥카공'의 요청 분석기다.
 사용자 발화에서 의도와 조건을 추출한다. 규칙:
 - intent: recommend(식사/카페 추천·조건 변경), smalltalk(인사), help(사용법), save_plan(직전 추천 저장), out_of_scope
 - 발화에 명시된 값만 채운다. 언급하지 않은 날짜·시각·예산·거리·지역·음식 종류는 반드시 null.
@@ -306,6 +307,7 @@ def analyze(message: str, today: date, llm: Any | None = None, stations: Station
         prompt = LLM_SYSTEM.format(today=today.isoformat(), weekday=WEEKDAYS[today.weekday()])
         result: AnalysisResult = structured.invoke([("system", prompt), ("human", message)])
         result.decided_by = "llm"
+        result.unsupported_area = rule.unsupported_area  # 안내용 값은 코드로만
         return _apply_more(_evidence_guard(result, message, rule, stations), rule)
     except Exception as exc:  # noqa: BLE001 - LLM 실패 시 규칙 분석으로 대체
         logger.warning("LLM 분석 실패, 규칙 분석으로 대체: %s", type(exc).__name__)

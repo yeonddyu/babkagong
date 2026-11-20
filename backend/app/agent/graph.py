@@ -270,9 +270,10 @@ class MainAgent:
             update: dict[str, Any] = {}
         else:
             current = state.get("search_area") or cond.preference.area
-            near = self.stations.nearest_other(current)
+            # 처음 요청한 역에서 가까운 순으로, 아직 찾지 않은 서비스 역
+            near = self.stations.nearest_other(cond.preference.area or current, exclude=set(data.areas_searched))
             other = near.name if near else None
-            if other and other not in data.areas_searched:
+            if other:
                 strategy = "adjacent_area"
                 detail = f"{current} 후보를 모두 확인해 인접한 {other} 주변을 같은 조건으로 탐색"
                 update = {"search_area": other}

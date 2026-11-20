@@ -20,7 +20,7 @@ class ErrorResponse(BaseModel):
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=500, description="사용자 발화")
     session_id: str | None = Field(default=None, max_length=64, description="이어서 대화할 세션 ID (없으면 새로 발급)")
-    area: str | None = Field(default=None, max_length=30, description="화면에서 선택한 서울 지하철역 (발화에 지역이 없을 때 사용, 역 목록에 없으면 무시)")
+    area: str | None = Field(default=None, max_length=30, description="화면에서 선택한 서비스 역 (발화에 지역이 없을 때 사용, 서비스 역이 아니면 무시)")
 
 
 class ChatEvent(BaseModel):
@@ -125,4 +125,4 @@ class StationItem(BaseModel):
 
 class StationListResponse(BaseModel):
     stations: list[StationItem]
-    complete: bool = Field(description="서울 역 전체 목록인지 (False 면 목록 준비 전이라 강남역·역삼역만)")
+    complete: bool = Field(default=True, description="항상 True (고정 목록)")

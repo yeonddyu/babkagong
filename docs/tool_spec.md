@@ -61,7 +61,7 @@
 
 | 필드 | 타입 | 필수 | 기본값 | 설명 |
 |---|---|---|---|---|
-| `area` | string | O | - | 서울 지하철역 이름 (역 목록에 없으면 INVALID_INPUT, 목록을 한 번 갱신해 다시 확인) — 역 중심 반경 700m |
+| `area` | string | O | - | 서비스 역 이름: 역삼역·강남역·언주역·신논현역·선릉역·선정릉역 (그 외 INVALID_INPUT) — 역 중심 반경 700m |
 | `food_type` | `"한식" \| "중식" \| "일식" \| "양식" \| "분식" \| "기타"` | X | 전체 | 음식 종류 |
 | `reference_date` | `YYYY-MM-DD` | X | 오늘(KST) | 영업 여부 판단 기준일 |
 | `max_results` | int 1~50 | X | 10 | 최대 결과 수 |
@@ -206,7 +206,7 @@
 ### 입력
 | 필드 | 타입 | 필수 | 기본값 |
 |---|---|---|---|
-| `area` | string (서울 지하철역 이름) | 위경도 없으면 O | - |
+| `area` | string (서비스 역 이름) | 위경도 없으면 O | - |
 | `latitude`, `longitude` | float | area 없으면 O | - |
 | `visit_date` | YYYY-MM-DD | X | 오늘 |
 | `visit_time` | HH:MM | X | 다음 정시 (다른 날짜면 12:00) |

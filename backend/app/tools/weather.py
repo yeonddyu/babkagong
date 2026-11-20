@@ -23,7 +23,7 @@ SKY_LABELS = {"1": "맑음", "3": "구름많음", "4": "흐림"}
 
 
 class WeatherInput(BaseModel):
-    area: str | None = Field(default=None, max_length=30, description="서울 지하철역 이름. 위경도를 주지 않으면 필수")
+    area: str | None = Field(default=None, max_length=30, description="서비스 역 이름. 위경도를 주지 않으면 필수")
     latitude: float | None = Field(default=None, ge=33.0, le=39.0)
     longitude: float | None = Field(default=None, ge=124.0, le=132.0)
     visit_date: date | None = Field(default=None, description="방문 날짜. 생략하면 오늘(KST)")
@@ -57,7 +57,7 @@ class WeatherOutput(BaseModel):
 
 DESCRIPTION = (
     "방문 날짜·시각의 날씨(기온, 강수확률, 비·눈 여부)를 반영해 음식점·카페 추천 우선순위를 정해야 할 때 사용한다. "
-    "지역(서울 지하철역 이름) 또는 위경도와 방문 날짜·시각을 넣는다. 오늘부터 약 3일 이내 예보만 제공한다."
+    "지역(서비스 역 이름) 또는 위경도와 방문 날짜·시각을 넣는다. 오늘부터 약 3일 이내 예보만 제공한다."
 )
 
 

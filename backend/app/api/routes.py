@@ -44,14 +44,14 @@ def health(request: Request):
                           tools=d.registry.names(), max_replans=d.settings.max_replans)
 
 
-@router.get("/stations", response_model=StationListResponse, tags=["status"], summary="추천 가능한 서울 지하철역 목록")
+@router.get("/stations", response_model=StationListResponse, tags=["status"], summary="서비스 역 목록 (역삼역 주변 6곳)")
 def stations(request: Request):
     d = _deps(request)
     directory = getattr(d.registry, "stations", None)
     items = directory.stations() if directory else []
     return StationListResponse(
         stations=[StationItem(name=s.name, lines=list(s.lines), latitude=s.latitude, longitude=s.longitude) for s in items],
-        complete=len(items) > 2)
+        complete=True)
 
 
 # ---------------------------------------------------------------- 대화

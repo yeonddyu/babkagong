@@ -58,14 +58,17 @@ def build_deps(settings: Settings, *, registry: ToolRegistry | None = None, agen
 
 
 def _warm_up(deps: Deps) -> None:
-    """서버 시작 시 백그라운드로 서울 전역 식당 데이터·역 목록을 준비한다 (첫 요청 지연 방지, 테스트에서는 생략)."""
+    """서버 시작 시 백그라운드로 서비스 지역 식당·메뉴 데이터를 준비한다 (첫 요청 지연 방지, 테스트에서는 생략)."""
     directory = getattr(deps.registry, "stations", None)
     if directory is None or "PYTEST_CURRENT_TEST" in os.environ or os.environ.get("BABKAGONG_WARMUP", "1") == "0":
         return
 
     def run():
-        ok = directory.refresh()
-        logger.info("역 목록 준비 %s: %d곳", "완료" if ok else "실패(강남역·역삼역만 사용)", len(directory.stations()))
+        try:  # 후보 Tool 을 한 번 불러 식당·메뉴 저장소를 만든다 (이미 있으면 바로 끝남)
+            r = deps.registry.invoke("search_restaurant_candidates", {"area": "역삼역", "max_results": 1, "order": "varied", "seed": 0})
+            logger.info("서비스 지역 데이터 준비 %s", "완료" if r["ok"] else f"실패({r['error']['code']})")
+        except Exception:  # noqa: BLE001
+            logger.warning("서비스 지역 데이터 준비 실패", exc_info=True)
 
     threading.Thread(target=run, name="warm-up", daemon=True).start()
 
@@ -74,7 +77,7 @@ def create_app(settings: Settings | None = None, *, deps: Deps | None = None) ->
     app = FastAPI(
         title="밥카공 API",
         version="1.0.0",
-        description="서울 지하철역 주변 식사 + 카공 카페 코스 추천 Agent. 대화, 계획 관리, 실행 로그 조회 API.",
+        description="역삼역(SSAFY) 주변 6개 역(역삼·강남·언주·신논현·선릉·선정릉) 식사 + 카공 카페 코스 추천 Agent. 대화, 계획 관리, 실행 로그 조회 API.",
     )
     app.state.deps = deps or build_deps(settings or load_settings())
     _warm_up(app.state.deps)
