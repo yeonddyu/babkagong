@@ -45,7 +45,7 @@ const otherCafes = computed(() => props.rec.cafes.map((c, i) => ({ c, i })).filt
 
     <div class="facts">
       <span class="fact">
-        <template v-if="rec.distance_m !== null">역에서 직선 {{ rec.distance_m }}m</template>
+        <template v-if="rec.distance_m !== null">{{ rec.distance_from ?? '역' }}에서 직선 {{ rec.distance_m }}m</template>
         <template v-else>거리 미확인</template>
         <span v-if="rec.estimated_walk_minutes" class="muted"> · 도보 약 {{ rec.estimated_walk_minutes }}분(추정)</span>
       </span>

@@ -190,7 +190,7 @@ async function scroll() {
 
     <aside class="mapside" aria-label="지도">
       <MapPanel v-if="latest?.recommendations.length" :recommendations="latest.recommendations" :selected="selected"
-                :cafe-choice="courseState.cafeChoice" :focus="courseState.focus"
+                :cafe-choice="courseState.cafeChoice" :focus="courseState.focus" :origin="latest.origin"
                 @select="selectCourse" @focus="focusPlace" @choose-cafe="chooseCafe" />
       <div v-else class="map-empty card">
         <p class="empty-title">아직 고른 코스가 없어요</p>

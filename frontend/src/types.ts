@@ -36,6 +36,7 @@ export interface Recommendation {
   category: string | null
   food_type: string | null
   distance_m: number | null
+  distance_from?: string | null // 거리 기준점 이름 (예: '강남역', '강남역 11번 출구')
   estimated_walk_minutes: number | null
   matched_menus: { name: string; price_krw: number | null }[]
   sample_menus?: { name: string; price_krw: number | null }[]
@@ -67,6 +68,7 @@ export interface ChatResponse {
   message: string
   message_by: 'template' | 'llm'
   summary?: string | null
+  origin?: Origin | null
   conditions: Record<string, any>
   clarify: boolean
   weather: Record<string, any> | null
@@ -127,4 +129,14 @@ export interface Health {
   llm: { available: boolean; provider: string; model: string | null; note: string | null }
   tools: string[]
   max_replans: number
+}
+
+/** 거리 기준점: 역 중심 또는 사용자가 말한 출구 (출구 좌표 출처: 카카오 로컬) */
+export interface Origin {
+  kind: 'station' | 'exit'
+  label: string
+  latitude: number
+  longitude: number
+  source: string
+  place_url?: string | null
 }

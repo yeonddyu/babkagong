@@ -7,7 +7,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { Focus } from '../stores/course'
-import type { Cafe, Recommendation } from '../types'
+import type { Cafe, Origin, Recommendation } from '../types'
 import { STATIONS, haversineM, kakaoMapKey, loadKakaoMaps } from '../utils/kakaoMap'
 
 const props = withDefaults(defineProps<{
@@ -16,7 +16,8 @@ const props = withDefaults(defineProps<{
   cafeChoice?: Record<number, number>
   focus?: Focus | null
   interactive?: boolean // 저장한 계획처럼 보기만 할 때는 false
-}>(), { cafeChoice: () => ({}), focus: null, interactive: true })
+  origin?: Origin | null // 거리 기준점 (출구면 핀으로 표시)
+}>(), { cafeChoice: () => ({}), focus: null, interactive: true, origin: null })
 const emit = defineEmits<{ select: [index: number]; focus: [f: Focus | null]; chooseCafe: [course: number, cafe: number] }>()
 
 const cafeIdx = (course: number) => props.cafeChoice[course] ?? 0
@@ -27,7 +28,7 @@ const cafeOf = (course: number): Cafe | undefined => {
 
 // 같은 위치(소수점 5자리, 약 1m)의 같은 종류 핀은 하나로 묶는다. 위치를 옮겨 그리지 않는다.
 interface Ref { course: number; cafe: number }
-interface Pin { kind: 'meal' | 'cafe' | 'alt' | 'station'; courses: number[]; refs: Ref[]; names: string[]; lat: number; lng: number }
+interface Pin { kind: 'meal' | 'cafe' | 'alt' | 'station' | 'exit'; courses: number[]; refs: Ref[]; names: string[]; lat: number; lng: number }
 
 const pins = computed<Pin[]>(() => {
   const byKey = new Map<string, Pin>()
@@ -53,7 +54,9 @@ const pins = computed<Pin[]>(() => {
     })
   })
   areas.forEach((a) => { const s = STATIONS[a]; if (s) add('station', null, a, s[0], s[1]) })
-  const order = { station: 0, alt: 1, meal: 2, cafe: 3 }
+  // 사용자가 말한 출구를 거리 기준점으로 썼다면 출구 위치도 표시
+  if (props.origin?.kind === 'exit') add('exit', null, props.origin.label, props.origin.latitude, props.origin.longitude)
+  const order = { station: 0, exit: 1, alt: 2, meal: 3, cafe: 4 }
   return [...byKey.values()].sort((a, b) => order[a.kind] - order[b.kind])
 })
 const isOn = (p: Pin) => p.courses.includes(props.selected)
@@ -89,7 +92,7 @@ const card = computed(() => {
   if (f.kind === 'meal') {
     const menus = r.matched_menus.length ? r.matched_menus : r.sample_menus ?? []
     const reasons = r.checks.filter((c) => c.result === 'pass').map((c) => `${c.criterion} 충족`)
-    if (r.distance_m != null) reasons.unshift(`역에서 직선 ${r.distance_m}m`)
+    if (r.distance_m != null) reasons.unshift(`${r.distance_from ?? '역'}에서 직선 ${r.distance_m}m`)
     return { kind: 'meal' as const, course: f.course, title: r.name, address: r.address ?? '정보 없음', menus,
              hours: r.business_hours ?? '확인 필요', reasons, search: `https://map.kakao.com/link/search/${encodeURIComponent(r.name)}` }
   }
@@ -124,11 +127,11 @@ function pinHtml(p: Pin): HTMLElement {
   const el = document.createElement('button')
   el.type = 'button'
   el.className = `pin ${p.kind}${isOn(p) ? ' on' : ''}${isFocused(p) ? ' focused' : ''}`
-  const label = p.kind === 'meal' ? '식당' : p.kind === 'station' ? '역' : '카페'
+  const label = p.kind === 'meal' ? '식당' : p.kind === 'station' ? '역' : p.kind === 'exit' ? '기준 출구' : '카페'
   el.setAttribute('aria-label', `${label} ${p.names.join(', ')}`)
   el.title = p.names.join(', ')
   const icon = document.createElement('span')
-  icon.textContent = p.kind === 'meal' ? '🍚' : p.kind === 'station' ? '🚇' : '☕'
+  icon.textContent = p.kind === 'meal' ? '🍚' : p.kind === 'station' ? '🚇' : p.kind === 'exit' ? '🚪' : '☕'
   el.appendChild(icon)
   if (p.kind === 'meal') {
     const num = document.createElement('b')
@@ -254,10 +257,10 @@ const fallbackLine = computed(() => {
            :aria-label="p.refs.length ? `${courseLabel(p)}번 코스 ${p.kind === 'meal' ? '식당' : '카페'} ${p.names.join(', ')}` : p.names[0]"
            @click="pick(p)" @keydown.enter.prevent="pick(p)">
           <title>{{ p.names.join(', ') }}</title>
-          <circle :r="p.kind === 'station' ? 7 : p.kind === 'meal' ? (p.courses.length > 1 ? 19 : 15) : p.kind === 'alt' ? 8 : p.attached ? 9 : 11" />
+          <circle :r="p.kind === 'station' || p.kind === 'exit' ? 7 : p.kind === 'meal' ? (p.courses.length > 1 ? 19 : 15) : p.kind === 'alt' ? 8 : p.attached ? 9 : 11" />
           <text v-if="p.kind === 'meal'" text-anchor="middle" dy="5">{{ courseLabel(p) }}</text>
           <text v-else-if="p.kind === 'cafe'" text-anchor="middle" dy="4" class="glyph">☕</text>
-          <text v-else-if="p.kind === 'station'" text-anchor="middle" dy="-12" class="station-label">{{ p.names[0] }}</text>
+          <text v-else-if="p.kind === 'station' || p.kind === 'exit'" text-anchor="middle" dy="-12" class="station-label">{{ p.names[0] }}</text>
         </g>
       </svg>
 
@@ -302,6 +305,7 @@ const fallbackLine = computed(() => {
       <span><i class="dot meal" />식당</span>
       <span><i class="dot cafe" />카페</span>
       <span v-if="interactive"><i class="dot alt" />다른 카페 후보</span>
+      <span v-if="origin?.kind === 'exit'" class="origin-note"><i class="dot exit" />거리 기준: {{ origin.label }}</span>
       <span><i class="dash" />식당→카페 직선 (실제 경로 아님)</span>
       <span v-if="mode === 'fallback'" class="muted">{{ fallbackReason }}</span>
       <span v-if="link" class="link-note">{{ interactive ? '선택한 코스: ' : '' }}{{ link.cafe }}까지 직선 {{ link.meters }}m</span>
@@ -365,6 +369,10 @@ const fallbackLine = computed(() => {
 .dot.meal { background: var(--accent); }
 .dot.cafe { background: var(--coffee); }
 .dot.alt { background: #fff; border: 2px dashed var(--coffee); }
+.dot.exit { background: #2f7d5b; border-radius: 3px; }
+.svg-pin.exit circle { fill: #2f7d5b; }
+.svg-pin.exit { cursor: default; }
+:deep(.pin.exit) { background: #2f7d5b; color: #fff; }
 .dash { width: 22px; border-top: 3px dashed var(--accent); display: inline-block; }
 .link-note { margin-left: auto; font-weight: 500; color: var(--accent); }
 .place-list { margin: 0; padding: 10px 16px 14px 16px; list-style: none; display: grid; gap: 6px; border-top: 1px dashed var(--line); }

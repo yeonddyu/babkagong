@@ -18,7 +18,7 @@ const COLORS = ['#f6c9a8', '#fbe3d4', '#efd2b8', '#fff1e3', '#f3b98f', '#fde8d6'
 interface Slot { menu: string | null; price: number | null; course: number; restaurant: string; reason: string }
 const reasonOf = (r: Recommendation) => {
   const pass = r.checks.filter((c) => c.result === 'pass').map((c) => `${c.criterion} 충족`)
-  if (r.distance_m != null) pass.unshift(`역에서 직선 ${r.distance_m}m`)
+  if (r.distance_m != null) pass.unshift(`${r.distance_from ?? '역'}에서 직선 ${r.distance_m}m`)
   return pass.join(' · ') || '조건을 통과한 추천 코스'
 }
 const menuSlots = computed<Slot[]>(() =>

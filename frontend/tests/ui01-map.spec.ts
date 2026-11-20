@@ -154,3 +154,34 @@ describe('저장한 코스 지도', () => {
     expect(w.text()).toContain('저장 당시 좌표가 없어')
   })
 })
+
+describe('출구 기준 (N번 출구 근처)', () => {
+  const origin = { kind: 'exit' as const, label: '강남역 11번 출구', latitude: 37.4990, longitude: 127.0262, source: "카카오 로컬 '강남역 2호선 11번출구'" }
+
+  it('기준 출구를 지도에 표시하고 거리 문구도 출구 기준으로 쓴다', async () => {
+    const recs = [makeRec({ distance_from: '강남역 11번 출구', distance_m: 120 })]
+    const w = mount(MapPanel, { props: { recommendations: recs, selected: 0, origin, focus: { kind: 'meal', course: 0, cafe: 0 } } })
+    await flushPromises()
+    expect(w.findAll('.svg-pin.exit')).toHaveLength(1)
+    expect(w.find('.svg-pin.exit .station-label').text()).toBe('강남역 11번 출구')
+    expect(w.find('.legend .origin-note').text()).toBe('거리 기준: 강남역 11번 출구')
+    expect(w.find('.place-card').text()).toContain('강남역 11번 출구에서 직선 120m')
+  })
+
+  it('역 중심 기준이면 출구 핀을 그리지 않는다', async () => {
+    const w = mount(MapPanel, { props: { recommendations: [makeRec()], selected: 0, origin: { ...origin, kind: 'station' as const, label: '강남역' } } })
+    await flushPromises()
+    expect(w.findAll('.svg-pin.exit')).toHaveLength(0)
+    expect(w.find('.legend .origin-note').exists()).toBe(false)
+  })
+
+  it('추천 카드의 거리도 기준점 이름으로 표시한다', async () => {
+    mockChat(() => makeResult({ origin, recommendations: [makeRec({ distance_from: '강남역 11번 출구', distance_m: 88 })] }))
+    const w = mount(ChatView, { global: { plugins: [makeRouter()] } })
+    await w.find('input').setValue('강남역 11번 출구 근처 점심')
+    await w.find('form').trigger('submit')
+    await flushPromises()
+    expect(w.find('article.rec').text()).toContain('강남역 11번 출구에서 직선 88m')
+    expect(w.findAll('aside.mapside .svg-pin.exit')).toHaveLength(1)
+  })
+})
