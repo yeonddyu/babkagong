@@ -44,3 +44,19 @@ def test_other_station_gets_clarify_with_reason(make_settings):
     assert body["clarify"] is True and body["recommendations"] == []
     assert body["message"].startswith("홍대입구역은(는) 서비스 지역이 아니에요.")
     assert "선정릉" in body["message"]
+
+
+def test_pressed_station_wins_over_previous_conversation_area(make_settings):
+    """강남역으로 추천받은 뒤 '선릉역' 버튼을 누르고 역 이름 없이 보내면 선릉역에서 찾는다."""
+    agent = MainAgent(make_registry(make_settings, make_session()), today_fn=lambda: TODAY)
+    first = agent.run("강남역 12시 점심 먹고 카공", area_hint="강남역")
+    second = agent.run("점심 먹고 카공하고 싶어", session_id=first["session_id"], area_hint="선릉역")
+    assert second["response"]["conditions"]["preference"]["area"] == "선릉역"
+    assert second["data"].areas_searched[0] == "선릉역"  # 첫 검색이 선릉역 (가짜 데이터엔 선릉역 식당이 없어 이후 인접 역 재계획)
+    # 버튼을 그대로 두고 조건만 바꾸는 후속 요청은 이전 조건(12시 등)을 이어받는다
+    follow = agent.run("1만원 이하로", session_id=first["session_id"], area_hint="선릉역")
+    assert follow["response"]["conditions"]["preference"]["area"] == "선릉역"
+    assert follow["response"]["conditions"]["base"]["meal_time"] == "12:00:00"
+    # 메시지에 역을 직접 말하면 버튼보다 메시지가 우선
+    named = agent.run("역삼역에서 점심", session_id=first["session_id"], area_hint="선릉역")
+    assert named["response"]["conditions"]["preference"]["area"] == "역삼역"
