@@ -172,12 +172,23 @@ def _food(text: str) -> tuple[str | None, list[str]]:
     return chosen, excluded
 
 
+def _has_reco_signal(text: str, station) -> bool:
+    return (any(w in text for w in RECOMMEND_WORDS) or any(any(w in text for w in ws) for ws in FOOD_KEYWORDS.values())
+            or station is not None or parse_budget(text) is not None)
+
+
+def _definite_without_llm(rule: AnalysisResult, message: str, stations: StationDirectory | None) -> bool:
+    """인사만, 또는 추천 표현 없는 도움말 요청은 규칙만으로 확정한다 (외부 LLM 호출 0회)."""
+    if rule.intent == "smalltalk":
+        return True  # 규칙이 추천 신호가 없을 때만 smalltalk 로 판단
+    return rule.intent == "help" and not _has_reco_signal(message, (stations or DEFAULT_STATIONS).find_in_text(message))
+
+
 def rule_analyze(message: str, today: date, stations: StationDirectory | None = None) -> AnalysisResult:
     text = message.strip()
     low = text.lower()
     station = (stations or DEFAULT_STATIONS).find_in_text(text)
-    has_reco = (any(w in text for w in RECOMMEND_WORDS) or any(any(w in text for w in ws) for ws in FOOD_KEYWORDS.values())
-                or station is not None or parse_budget(text) is not None)
+    has_reco = _has_reco_signal(text, station)
     reset = any(w in text for w in RESET_WORDS)
 
     if any(w in text for w in SAVE_WORDS) and any(w in text for w in ("코스", "계획", "이거", "이걸", "그거", "일정", "추천")):
@@ -308,7 +319,7 @@ def _apply_more(result: AnalysisResult, rule: AnalysisResult) -> AnalysisResult:
 
 def analyze(message: str, today: date, llm: Any | None = None, stations: StationDirectory | None = None) -> AnalysisResult:
     rule = rule_analyze(message, today, stations)
-    if llm is None:
+    if llm is None or _definite_without_llm(rule, message, stations):
         return _apply_more(rule, rule)
     try:
         structured = llm.with_structured_output(AnalysisResult)
