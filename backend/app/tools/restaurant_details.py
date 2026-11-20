@@ -174,10 +174,10 @@ def create_tool(
     gangnam_license: GangnamLicenseDataset,
 ) -> ToolSpec:
     def run_redtable(source_id: str) -> RestaurantDetailOutput:
-        records, meta = redtable_restaurants.load()
-        rec = _find(records, source_id)
+        meta = redtable_restaurants.ensure()
+        rec = redtable_restaurants.get(source_id)
         if rec is None:
-            raise ToolError(ErrorCode.NO_RESULT, f"서울관광재단 식당 ID {source_id} 를 서비스 지역(강남·역삼) 데이터에서 찾지 못했습니다.")
+            raise ToolError(ErrorCode.NO_RESULT, f"서울관광재단 식당 ID {source_id} 를 찾지 못했습니다.")
 
         fetched: dict[str, str | None] = {"basic": meta.get("fetched_at"), "menu": None, "operation": None}
         errors: list[SectionError] = []
@@ -185,9 +185,8 @@ def create_tool(
         menus: list[MenuItem] | None = None
         menu_status: SectionStatus
         try:
-            by_id, menu_meta = redtable_details.menus_by_id()
+            rows, menu_meta = redtable_details.menus_for(source_id)
             fetched["menu"] = menu_meta.get("fetched_at")
-            rows = by_id.get(source_id)
             if rows:
                 menus = []
                 seen: set[tuple[str, int | None]] = set()
@@ -205,9 +204,8 @@ def create_tool(
         operation: OperationInfo | None = None
         operation_status: SectionStatus
         try:
-            by_id, op_meta = redtable_details.operations_by_id()
+            rows, op_meta = redtable_details.operations_for(source_id)
             fetched["operation"] = op_meta.get("fetched_at")
-            rows = by_id.get(source_id)
             if rows:
                 operation, operation_status = _operation(rows[0]), "found"
             else:

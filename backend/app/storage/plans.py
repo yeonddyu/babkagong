@@ -48,7 +48,7 @@ class PlanBase(BaseModel):
     plan_date: date
     start_time: time
     end_time: time
-    area: Literal["강남역", "역삼역"] | None = None
+    area: str | None = Field(default=None, max_length=30)
     restaurant_name: str = Field(min_length=1, max_length=200)
     restaurant_source: str | None = None
     restaurant_source_id: str | None = None

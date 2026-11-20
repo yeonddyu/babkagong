@@ -6,7 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-Area = Literal["강남역", "역삼역"]
+Area = str  # 서울 지하철역 표시 이름 (예: "강남역", "홍대입구역"). 역 목록(StationDirectory)으로 확인한 값만 들어간다
 FoodType = Literal["한식", "중식", "일식", "양식", "분식", "기타"]
 MealPeriod = Literal["아침", "점심", "저녁"]
 Intent = Literal["recommend", "smalltalk", "help", "save_plan", "out_of_scope"]

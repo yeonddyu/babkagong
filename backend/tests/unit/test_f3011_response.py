@@ -63,7 +63,7 @@ def test_non_tool_responses(make_settings):
     help_body = run(make_settings, "사용법 알려줘")
     assert "예:" in help_body["message"] and help_body["evidence"] == []
     clarify = run(make_settings, "점심 먹고 카공할 곳 추천")
-    assert clarify["clarify"] is True and "강남역 또는 역삼역" in clarify["message"]
+    assert clarify["clarify"] is True and "서울 지하철역 이름" in clarify["message"]
 
 
 def test_llm_message_only_when_available(make_settings):

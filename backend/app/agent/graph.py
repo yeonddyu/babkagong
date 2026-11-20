@@ -20,6 +20,7 @@ from app.agent.conditions import AnalysisResult, Conditions
 from app.agent.execution import ExecutionData, ToolExecutor, run_cafes, run_candidates, run_details, run_weather
 from app.agent.judge import Evaluation, cafe_radius, evaluate
 from app.agent.memory import InMemoryMemoryStore, MemoryStore, build_memory, normalize_place_name, resolve_conditions, shown_keys, shown_names
+from app.datasets.stations import StationDirectory
 from app.agent.planning import CAFE_TARGETS, Plan, build_plan
 from app.agent.respond import build_response
 from app.datasets.cache import now_kst
@@ -77,6 +78,7 @@ class MainAgent:
         self.today_fn = today_fn
         self.now_fn = now_fn
         self.seed_fn = seed_fn  # 후보를 고르게 섞는 기준값 (테스트에서 고정)
+        self.stations = getattr(registry, "stations", None) or StationDirectory(None, None)
         self.graph = self._build()
 
     # ------------------------------------------------------------ graph
@@ -144,11 +146,12 @@ class MainAgent:
 
     # ------------------------------------------------------------ nodes
     def analyze_node(self, state: AgentState) -> dict[str, Any]:
-        analysis = analyze(state["message"], self.today_fn(), self.llm)
+        analysis = analyze(state["message"], self.today_fn(), self.llm, self.stations)
         conditions, changed, used_previous = resolve_conditions(analysis, state.get("previous"))
-        if analysis.intent == "recommend" and state.get("area_hint") and conditions.preference.area is None:
+        hint = self.stations.get(state.get("area_hint")) if state.get("area_hint") else None  # 화면 선택값도 역 목록으로 확인
+        if analysis.intent == "recommend" and hint and conditions.preference.area is None:
             conditions = conditions.model_copy(deep=True)
-            conditions.preference.area = state["area_hint"]
+            conditions.preference.area = hint.name
             changed.append("preference.area")
         # 후속 요청에서 지역만 바꾸면 이전 역의 출구 번호는 의미가 없으므로 버린다
         prev_area = (((state.get("previous") or {}).get("conditions") or {}).get("preference") or {}).get("area")
@@ -267,8 +270,9 @@ class MainAgent:
             update: dict[str, Any] = {}
         else:
             current = state.get("search_area") or cond.preference.area
-            other = "역삼역" if current == "강남역" else "강남역"
-            if other not in data.areas_searched:
+            near = self.stations.nearest_other(current)
+            other = near.name if near else None
+            if other and other not in data.areas_searched:
                 strategy = "adjacent_area"
                 detail = f"{current} 후보를 모두 확인해 인접한 {other} 주변을 같은 조건으로 탐색"
                 update = {"search_area": other}

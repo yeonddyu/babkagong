@@ -10,14 +10,14 @@ from typing import Any
 
 from app.clients.redtable import ENDPOINT_RESTAURANT, RedtableClient
 from app.clients.seoul_opendata import SERVICE_GANGNAM_GENERAL_RESTAURANT, SERVICE_GANGNAM_REST_FOOD, SeoulOpenDataClient
-from app.core.geo import LOCALDATA_CRS, tm_to_wgs84, to_float, within_any_station
+from app.core.geo import LOCALDATA_CRS, tm_to_wgs84, to_float
 from app.datasets.cache import JsonCache
+from app.datasets.sqlite_store import SqliteRows
 
 SOURCE_REDTABLE = "seoul_tourism_redtable"  # 서울관광재단 음식관광 API 식당기본정보
 SOURCE_GANGNAM_LICENSE = "gangnam_general_restaurant_license"  # 강남구 일반음식점 인허가 정보
 SOURCE_GANGNAM_REST_FOOD = "gangnam_rest_food_license"  # 강남구 휴게음식점 인허가 정보 (카페류)
 
-AREA_CACHE_RADIUS_M = 1500  # 캐시에 보관할 반경 (두 역 중 하나에서)
 
 
 @dataclass
@@ -98,29 +98,45 @@ def normalize_redtable_restaurant(row: dict[str, Any]) -> RestaurantRecord | Non
 
 
 class RedtableRestaurantDataset:
-    CACHE_NAME = "redtable_rstr_area"
+    """서울관광재단 식당기본정보 — 서울 전역을 SQLite 에 보관하고 좌표 반경으로 조회한다."""
+
+    STORE_NAME = "redtable_rstr_seoul"
 
     def __init__(self, client: RedtableClient, cache: JsonCache):
         self.client = client
-        self.cache = cache
+        self.store = SqliteRows(cache, self.STORE_NAME)
 
     def _build(self):
-        kept: list[dict[str, Any]] = []
-        scanned = 0
-        total = 0
-        for page in self.client.iter_all(ENDPOINT_RESTAURANT):
-            total = page.total_count or total
-            for row in page.rows:
-                scanned += 1
-                rec = normalize_redtable_restaurant(row)
-                if rec and rec.latitude is not None and within_any_station(rec.latitude, rec.longitude, AREA_CACHE_RADIUS_M):
-                    kept.append(rec.to_dict())
-        return kept, {"source_total_count": total, "scanned_rows": scanned}
+        stats = {"scanned_rows": 0, "source_total_count": 0, "kept": 0}
 
-    def load(self) -> tuple[list[RestaurantRecord], dict[str, Any]]:
-        payload = self.cache.get_or_build(self.CACHE_NAME, self._build)
-        meta = {k: v for k, v in payload.items() if k != "data"}
-        return _records(self, payload), meta
+        def rows():
+            for page in self.client.iter_all(ENDPOINT_RESTAURANT):
+                stats["source_total_count"] = page.total_count or stats["source_total_count"]
+                for row in page.rows:
+                    stats["scanned_rows"] += 1
+                    rec = normalize_redtable_restaurant(row)
+                    if rec and rec.latitude is not None and rec.longitude is not None:
+                        stats["kept"] += 1
+                        yield rec.source_id, rec.latitude, rec.longitude, rec.to_dict()
+
+        return rows(), lambda: dict(stats)
+
+    def ensure(self) -> dict[str, Any]:
+        """데이터가 없거나 만료면 전체를 다시 받는다 (외부 API 오류는 ExternalAPIError 로 전파)."""
+        return self.store.ensure(self._build)
+
+    def near(self, lat: float, lng: float, radius_m: float) -> list[tuple[float, RestaurantRecord]]:
+        self.ensure()
+        return [(d, RestaurantRecord.from_dict(data)) for d, data in self.store.near(lat, lng, radius_m)]
+
+    def count_near(self, lat: float, lng: float, radius_m: float) -> int:
+        self.ensure()
+        return self.store.count_near(lat, lng, radius_m)
+
+    def get(self, source_id: str) -> RestaurantRecord | None:
+        self.ensure()
+        rows = self.store.by_key(str(source_id))
+        return RestaurantRecord.from_dict(rows[0]) if rows else None
 
 
 # ---------------------------------------------------------- 강남구 인허가
@@ -175,7 +191,7 @@ def license_open_on(rec: RestaurantRecord, day: date, today: date) -> bool:
 class GangnamLicenseDataset:
     """강남구 인허가 데이터셋. 기본은 일반음식점, rest_food() 는 휴게음식점(카페류)."""
 
-    CACHE_NAME = "gangnam_license_area"
+    CACHE_NAME = "gangnam_license_all"
 
     def __init__(
         self,
@@ -196,7 +212,7 @@ class GangnamLicenseDataset:
 
     @classmethod
     def rest_food(cls, client: SeoulOpenDataClient, cache: JsonCache) -> "GangnamLicenseDataset":
-        return cls(client, cache, service=SERVICE_GANGNAM_REST_FOOD, cache_name="gangnam_rest_food_area",
+        return cls(client, cache, service=SERVICE_GANGNAM_REST_FOOD, cache_name="gangnam_rest_food_all",
                    source=SOURCE_GANGNAM_REST_FOOD, license_type="휴게음식점")
 
     def _build(self):
@@ -210,7 +226,7 @@ class GangnamLicenseDataset:
             upd = rec.extra.get("updated_at")
             if upd and (latest_update is None or upd > latest_update):
                 latest_update = upd
-            if rec.latitude is not None and within_any_station(rec.latitude, rec.longitude, AREA_CACHE_RADIUS_M):
+            if rec.latitude is not None:  # 강남구 전체 (서울 전역 역 확장 후 강남구 안의 다른 역에서도 쓰도록)
                 kept.append(rec.to_dict())
         return kept, {"source_total_count": page.total_count, "scanned_rows": len(page.rows), "data_updated_at": latest_update}
 
@@ -221,47 +237,57 @@ class GangnamLicenseDataset:
 
 
 # ------------------------------------------------ 레드테이블 메뉴·운영정보 (F3003)
-class RedtableDetailDataset:
-    """메뉴정보(한국어)·식당운영정보를 서비스 지역 식당 ID 로 걸러 캐시한다.
+MENU_FIELDS = ("MENU_ID", "MENU_NM", "MENU_PRICE", "SPCLT_MENU_YN")
+OPERATION_FIELDS = ("BSNS_TM_CN", "RESTDY_INFO_CN", "WIFI_OFR_YN", "PRKG_POS_YN", "PRDL_SEAT_CNT", "SEAT_CNT", "RSRV_MTHD_NM",
+                    "DSBR_CVNTL_YN", "DELV_SRVIC_YN", "KIOSK_YN", "MB_PMAMT_YN", "REPRSNT_MENU_NM", "HMPG_URL")
 
-    두 API 모두 식당 ID 필터가 없어 전체 페이지를 순회한다.
-    같은 출처(레드테이블)의 RSTR_ID 로만 연결한다.
+
+class RedtableDetailDataset:
+    """메뉴정보(한국어)·식당운영정보 — 서울 전역을 식당 ID(RSTR_ID)별로 SQLite 에 보관한다.
+
+    두 API 모두 식당 ID 필터가 없어 전체 페이지를 순회한다. 같은 출처(레드테이블)의 RSTR_ID 로만 연결한다.
+    상세 Tool 이 쓰는 필드만 저장한다 (MENU_FIELDS, OPERATION_FIELDS).
     """
 
-    MENU_CACHE = "redtable_menu_area"
-    OPERATION_CACHE = "redtable_oprt_area"
-
-    def __init__(self, client: RedtableClient, cache: JsonCache, restaurants: RedtableRestaurantDataset):
+    def __init__(self, client: RedtableClient, cache: JsonCache, restaurants: RedtableRestaurantDataset | None = None):
         self.client = client
-        self.cache = cache
-        self.restaurants = restaurants
+        self.menu_store = SqliteRows(cache, "redtable_menu_seoul")
+        self.operation_store = SqliteRows(cache, "redtable_oprt_seoul")
 
-    def _area_ids(self) -> set[str]:
-        records, _ = self.restaurants.load()
-        return {r.source_id for r in records}
+    def _builder(self, endpoint: str, fields: tuple[str, ...]):
+        def build():
+            stats = {"scanned_rows": 0, "source_total_count": 0}
 
-    def _collect(self, endpoint: str):
-        ids = self._area_ids()
-        grouped: dict[str, list[dict[str, Any]]] = {}
-        scanned = 0
-        total = 0
-        for page in self.client.iter_all(endpoint):
-            total = page.total_count or total
-            for row in page.rows:
-                scanned += 1
-                rid = _text(row.get("RSTR_ID"))
-                if rid in ids:
-                    grouped.setdefault(rid, []).append(row)
-        return grouped, {"source_total_count": total, "scanned_rows": scanned}
+            def rows():
+                for page in self.client.iter_all(endpoint):
+                    stats["source_total_count"] = page.total_count or stats["source_total_count"]
+                    for row in page.rows:
+                        stats["scanned_rows"] += 1
+                        rid = _text(row.get("RSTR_ID"))
+                        if rid:
+                            yield rid, None, None, {k: row.get(k) for k in fields}
 
-    def menus_by_id(self) -> tuple[dict[str, list[dict[str, Any]]], dict[str, Any]]:
+            return rows(), lambda: dict(stats)
+        return build
+
+    def ensure_menus(self) -> dict[str, Any]:
         from app.clients.redtable import ENDPOINT_MENU_KOREAN
 
-        payload = self.cache.get_or_build(self.MENU_CACHE, lambda: self._collect(ENDPOINT_MENU_KOREAN))
-        return payload["data"], {k: v for k, v in payload.items() if k != "data"}
+        return self.menu_store.ensure(self._builder(ENDPOINT_MENU_KOREAN, MENU_FIELDS))
 
-    def operations_by_id(self) -> tuple[dict[str, list[dict[str, Any]]], dict[str, Any]]:
+    def ensure_operations(self) -> dict[str, Any]:
         from app.clients.redtable import ENDPOINT_OPERATION
 
-        payload = self.cache.get_or_build(self.OPERATION_CACHE, lambda: self._collect(ENDPOINT_OPERATION))
-        return payload["data"], {k: v for k, v in payload.items() if k != "data"}
+        return self.operation_store.ensure(self._builder(ENDPOINT_OPERATION, OPERATION_FIELDS))
+
+    def menus_for(self, source_id: str) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        meta = self.ensure_menus()
+        return self.menu_store.by_key(str(source_id)), meta
+
+    def operations_for(self, source_id: str) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        meta = self.ensure_operations()
+        return self.operation_store.by_key(str(source_id)), meta
+
+    def ids_with_menu(self, ids) -> set[str]:
+        self.ensure_menus()
+        return self.menu_store.keys_present(str(i) for i in ids)

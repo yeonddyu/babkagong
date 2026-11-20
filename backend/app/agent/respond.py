@@ -37,7 +37,7 @@ CODE_NOTICE = {
 }
 
 HELP_TEXT = (
-    "밥카공은 강남역·역삼역 주변에서 식사할 곳과 식사 후 카공할 카페를 함께 추천해요.\n"
+    "밥카공은 서울 지하철역 주변에서 식사할 곳과 식사 후 카공할 카페를 함께 추천해요.\n"
     "• 예: \"강남역에서 1만 5천원 이하로 12시에 점심 먹고 카공할래\"\n"
     "• 조건: 날짜·시각, 음식 종류, 예산, 가까운 곳 선호, 몇 m/몇 분 이내\n"
     "• 후속: \"같은 조건에서 한식 말고 일식으로\", \"이 코스로 저장해줘\"\n"
@@ -143,7 +143,7 @@ def _weather_view(data: ExecutionData | None) -> dict[str, Any] | None:
 
 def _template_message(intent: str, body: dict[str, Any]) -> str:
     if intent == "smalltalk":
-        return "안녕하세요! 밥카공이에요. 강남역·역삼역에서 식사하고 카공할 곳을 함께 추천해 드릴게요. 어디서 무엇을 드시고 싶은지 말씀해 주세요."
+        return "안녕하세요! 밥카공이에요. 서울 지하철역 주변에서 식사하고 카공할 곳을 함께 추천해 드릴게요. 어디서 무엇을 드시고 싶은지 말씀해 주세요."
     if intent == "help":
         return HELP_TEXT
     if intent == "save_plan":
@@ -159,9 +159,9 @@ def _template_message(intent: str, body: dict[str, Any]) -> str:
                          ", ".join(f"{c['title']}({c['start_time'][:5]}~{c['end_time'][:5]})" for c in sr["conflicts"]))
         return "\n".join(lines)
     if intent == "out_of_scope":
-        return "저는 강남역·역삼역 주변 식사 장소와 카공 카페 추천만 도와드릴 수 있어요. 예: \"역삼역 1만원 이하 점심 먹고 카공\""
+        return "저는 서울 지하철역 주변 식사 장소와 카공 카페 추천만 도와드릴 수 있어요. 예: \"홍대입구역 1만원 이하 점심 먹고 카공\""
     if body.get("clarify"):
-        return "어느 지역에서 찾을까요? 강남역 또는 역삼역 중에서 골라 주세요. (화면 위 지역 선택을 사용해도 돼요)"
+        return "어느 역 주변에서 찾을까요? 서울 지하철역 이름으로 말해 주세요. (화면 위 지역 선택을 사용해도 돼요)"
     lines: list[str] = []
     recs = body["recommendations"]
     w = body.get("weather")

@@ -11,6 +11,7 @@ from app.clients.seoul_opendata import SeoulOpenDataClient
 from app.core.config import Settings, load_settings
 from app.datasets.cache import JsonCache
 from app.datasets.exits import StationExitDataset
+from app.datasets.stations import StationDirectory
 from app.datasets.restaurants import GangnamLicenseDataset, RedtableDetailDataset, RedtableRestaurantDataset
 from app.tools import nearby_cafes, restaurant_candidates, restaurant_details, weather
 from app.tools.registry import ToolRegistry
@@ -28,13 +29,17 @@ def build_default_registry(settings: Settings | None = None, *, session=None, to
     redtable_details = RedtableDetailDataset(redtable_client, cache, redtable_restaurants)
     gangnam_license = GangnamLicenseDataset(seoul_client, cache)
 
+    stations = StationDirectory(seoul_client, cache, redtable_restaurants)
+
     registry = ToolRegistry()
+    registry.stations = stations  # Agent 가 발화에서 역을 찾고 인접 역을 고를 때 사용 (코드 판단, Tool 아님)
     date_kw = {"today_fn": today_fn} if today_fn else {}
     registry.register(restaurant_candidates.create_tool(redtable_restaurants, gangnam_license, redtable_details,
-                                                        StationExitDataset(kakao_client, cache), **date_kw))
+                                                        StationExitDataset(kakao_client, cache, stations), stations,
+                                                        **date_kw))
     registry.register(restaurant_details.create_tool(redtable_restaurants, redtable_details, gangnam_license))
     rest_food = GangnamLicenseDataset.rest_food(seoul_client, cache)
     registry.register(nearby_cafes.create_tool(kakao_client, rest_food, **date_kw))
     kma_client = KMAClient(settings.kma_api_key, timeout=settings.http_timeout_sec, session=session)
-    registry.register(weather.create_tool(kma_client, **({"now_fn": now_fn} if now_fn else {})))
+    registry.register(weather.create_tool(kma_client, stations=stations, **({"now_fn": now_fn} if now_fn else {})))
     return registry

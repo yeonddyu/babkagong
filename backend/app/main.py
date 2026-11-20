@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 import logging
+import os
+import threading
 from dataclasses import dataclass
 from typing import Any
 
@@ -55,13 +57,27 @@ def build_deps(settings: Settings, *, registry: ToolRegistry | None = None, agen
     return Deps(settings, registry, agent, plans, logs, bus, logging_agent)
 
 
+def _warm_up(deps: Deps) -> None:
+    """서버 시작 시 백그라운드로 서울 전역 식당 데이터·역 목록을 준비한다 (첫 요청 지연 방지, 테스트에서는 생략)."""
+    directory = getattr(deps.registry, "stations", None)
+    if directory is None or "PYTEST_CURRENT_TEST" in os.environ or os.environ.get("BABKAGONG_WARMUP", "1") == "0":
+        return
+
+    def run():
+        ok = directory.refresh()
+        logger.info("역 목록 준비 %s: %d곳", "완료" if ok else "실패(강남역·역삼역만 사용)", len(directory.stations()))
+
+    threading.Thread(target=run, name="warm-up", daemon=True).start()
+
+
 def create_app(settings: Settings | None = None, *, deps: Deps | None = None) -> FastAPI:
     app = FastAPI(
         title="밥카공 API",
         version="1.0.0",
-        description="강남역·역삼역 식사 + 카공 카페 코스 추천 Agent. 대화, 계획 관리, 실행 로그 조회 API.",
+        description="서울 지하철역 주변 식사 + 카공 카페 코스 추천 Agent. 대화, 계획 관리, 실행 로그 조회 API.",
     )
     app.state.deps = deps or build_deps(settings or load_settings())
+    _warm_up(app.state.deps)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],

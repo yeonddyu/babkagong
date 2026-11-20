@@ -14,6 +14,10 @@ from typing import Any
 
 from app.agent.conditions import AnalysisResult, Conditions
 
+from app.datasets.stations import StationDirectory
+
+DEFAULT_STATIONS = StationDirectory(None, None)  # 역 목록 없이 쓸 때 (강남역·역삼역)
+
 logger = logging.getLogger(__name__)
 
 WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"]
@@ -168,11 +172,12 @@ def _food(text: str) -> tuple[str | None, list[str]]:
     return chosen, excluded
 
 
-def rule_analyze(message: str, today: date) -> AnalysisResult:
+def rule_analyze(message: str, today: date, stations: StationDirectory | None = None) -> AnalysisResult:
     text = message.strip()
     low = text.lower()
+    station = (stations or DEFAULT_STATIONS).find_in_text(text)
     has_reco = (any(w in text for w in RECOMMEND_WORDS) or any(any(w in text for w in ws) for ws in FOOD_KEYWORDS.values())
-                or "강남" in text or "역삼" in text or parse_budget(text) is not None)
+                or station is not None or parse_budget(text) is not None)
     reset = any(w in text for w in RESET_WORDS)
 
     if any(w in text for w in SAVE_WORDS) and any(w in text for w in ("코스", "계획", "이거", "이걸", "그거", "일정", "추천")):
@@ -208,7 +213,7 @@ def rule_analyze(message: str, today: date) -> AnalysisResult:
     c.base.meal_time, c.base.cafe_time = meal_time, cafe_time
     c.constraint.end_by = end_by
 
-    c.preference.area = "강남역" if "강남" in text else "역삼역" if "역삼" in text else None
+    c.preference.area = station.name if station else None
     c.preference.food_type, c.preference.exclude_food_types = _food(text)
     if SHORT_WALK_PATTERN.search(text):
         c.preference.prefer_short_walk = True
@@ -229,7 +234,7 @@ def rule_analyze(message: str, today: date) -> AnalysisResult:
 
 
 # ---------------------------------------------------------------- LLM 분석
-LLM_SYSTEM = """너는 강남역·역삼역 식사+카공 카페 추천 서비스 '밥카공'의 요청 분석기다.
+LLM_SYSTEM = """너는 서울 지하철역 주변 식사+카공 카페 추천 서비스 '밥카공'의 요청 분석기다.
 사용자 발화에서 의도와 조건을 추출한다. 규칙:
 - intent: recommend(식사/카페 추천·조건 변경), smalltalk(인사), help(사용법), save_plan(직전 추천 저장), out_of_scope
 - 발화에 명시된 값만 채운다. 언급하지 않은 날짜·시각·예산·거리·지역·음식 종류는 반드시 null.
@@ -240,11 +245,13 @@ LLM_SYSTEM = """너는 강남역·역삼역 식사+카공 카페 추천 서비�
 - reason 에 의도를 그렇게 판단한 이유를 한 문장으로 쓴다."""
 
 
-def _evidence_guard(result: AnalysisResult, message: str, rule: AnalysisResult) -> AnalysisResult:
+def _evidence_guard(result: AnalysisResult, message: str, rule: AnalysisResult,
+                    stations: StationDirectory | None = None) -> AnalysisResult:
     """LLM 이 발화 근거 없이 채운 값은 규칙 분석값(없으면 None)으로 되돌린다."""
     c = result.conditions
-    if c.preference.area and c.preference.area[:2] not in message:
-        c.preference.area = rule.conditions.preference.area
+    # 지역은 역 목록에 있는 역이고 그 이름이 발화에 있을 때만 LLM 값을 쓴다 (아니면 규칙 분석값)
+    known = (stations or DEFAULT_STATIONS).get(c.preference.area) if c.preference.area else None
+    c.preference.area = known.name if (known and known.base in message) else rule.conditions.preference.area
     if c.constraint.budget_max and rule.conditions.constraint.budget_max is None and not re.search(
             r"\d\s*(?:원|만|천)|만\s*원|[일이삼사오육칠팔구]\s*천\s*원", message):
         c.constraint.budget_max = None
@@ -290,8 +297,8 @@ def _apply_more(result: AnalysisResult, rule: AnalysisResult) -> AnalysisResult:
     return result
 
 
-def analyze(message: str, today: date, llm: Any | None = None) -> AnalysisResult:
-    rule = rule_analyze(message, today)
+def analyze(message: str, today: date, llm: Any | None = None, stations: StationDirectory | None = None) -> AnalysisResult:
+    rule = rule_analyze(message, today, stations)
     if llm is None:
         return _apply_more(rule, rule)
     try:
@@ -299,7 +306,7 @@ def analyze(message: str, today: date, llm: Any | None = None) -> AnalysisResult
         prompt = LLM_SYSTEM.format(today=today.isoformat(), weekday=WEEKDAYS[today.weekday()])
         result: AnalysisResult = structured.invoke([("system", prompt), ("human", message)])
         result.decided_by = "llm"
-        return _apply_more(_evidence_guard(result, message, rule), rule)
+        return _apply_more(_evidence_guard(result, message, rule, stations), rule)
     except Exception as exc:  # noqa: BLE001 - LLM 실패 시 규칙 분석으로 대체
         logger.warning("LLM 분석 실패, 규칙 분석으로 대체: %s", type(exc).__name__)
         rule.reason = f"LLM 분석 실패({type(exc).__name__})로 규칙 분석 사용: " + rule.reason

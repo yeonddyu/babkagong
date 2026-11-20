@@ -29,6 +29,7 @@ def _format_validation_error(exc: ValidationError) -> str:
 class ToolRegistry:
     def __init__(self) -> None:
         self._tools: dict[str, ToolSpec] = {}
+        self.stations = None  # StationDirectory (catalog 이 채움). 없으면 강남역·역삼역 기본 목록
 
     def register(self, spec: ToolSpec) -> ToolSpec:
         if spec.name in self._tools:

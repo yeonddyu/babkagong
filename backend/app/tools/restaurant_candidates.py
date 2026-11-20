@@ -20,9 +20,10 @@ from typing import Callable, Literal
 from pydantic import BaseModel, Field
 
 from app.core.errors import ErrorCode, ExternalAPIError
-from app.core.geo import STATIONS, haversine_m
+from app.core.geo import haversine_m
 from app.datasets.cache import now_kst
 from app.datasets.exits import StationExitDataset
+from app.datasets.stations import StationDirectory
 from app.datasets.restaurants import (
     SOURCE_GANGNAM_LICENSE,
     SOURCE_REDTABLE,
@@ -41,7 +42,6 @@ SEARCH_RADIUS_M = 700  # 역 중심 도보 약 10분
 DUPLICATE_DISTANCE_M = 30
 VARIED_BANDS_M = (250, 450)  # varied 정렬의 거리 구간 경계 (0~250, 250~450, 450~반경)
 
-Area = Literal["강남역", "역삼역"]
 FoodType = Literal["한식", "중식", "일식", "양식", "분식", "기타"]
 
 # 출처 원본 분류값 → 정규화 음식 종류. 매핑에 없는 값은 "기타".
@@ -62,7 +62,7 @@ NON_MEAL_NAME = re.compile(
 
 
 class RestaurantSearchInput(BaseModel):
-    area: Area = Field(description="검색 지역. '강남역' 또는 '역삼역'")
+    area: str = Field(min_length=2, max_length=30, description="검색할 서울 지하철역 이름 (예: '강남역', '홍대입구역')")
     food_type: FoodType | None = Field(default=None, description="음식 종류. 생략하면 전체")
     reference_date: date | None = Field(
         default=None, description="영업 여부 판단 기준일(YYYY-MM-DD). 생략하면 오늘(KST)"
@@ -138,7 +138,7 @@ class RestaurantSearchOutput(BaseModel):
 
 
 DESCRIPTION = (
-    "강남역 또는 역삼역 주변에서 식사할 음식점 후보 목록이 필요할 때 사용한다. "
+    "서울 지하철역 주변에서 식사할 음식점 후보 목록이 필요할 때 사용한다. "
     "음식 종류(한식/중식/일식/양식/분식/기타)와 영업 기준일로 거른 후보를 거리순으로 돌려준다. "
     "각 후보의 source 와 source_id 는 get_restaurant_details 에 그대로 넘겨 메뉴·가격·영업시간을 확인한다. "
     "카페는 이 Tool 이 아니라 search_nearby_cafes 로 찾는다."
@@ -198,18 +198,28 @@ def _to_candidate(rec: RestaurantRecord, center: tuple[float, float], distance: 
     )
 
 
+def _is_meal_place(rec: RestaurantRecord, food_type: str | None) -> bool:
+    if rec.category in CAFE_CATEGORIES or NON_MEAL_NAME.search(rec.name):
+        return False
+    return not (food_type and _food_type_of(rec.category) != food_type)
+
+
 def _filter_area(records, center, food_type, radius_m: int = SEARCH_RADIUS_M):
+    """메모리의 레코드 목록에서 반경 안 식사 장소를 거리순으로 (인허가 데이터용)."""
     out = []
     for rec in records:
-        if rec.latitude is None or rec.longitude is None:
-            continue
-        if rec.category in CAFE_CATEGORIES or NON_MEAL_NAME.search(rec.name):
-            continue
-        if food_type and _food_type_of(rec.category) != food_type:
+        if rec.latitude is None or rec.longitude is None or not _is_meal_place(rec, food_type):
             continue
         dist = haversine_m(center[0], center[1], rec.latitude, rec.longitude)
         if dist <= radius_m:
             out.append((dist, rec))
+    out.sort(key=lambda t: (t[0], t[1].name))
+    return out
+
+
+def _near_meal_places(redtable: RedtableRestaurantDataset, center, food_type, radius_m: int):
+    """SQLite 좌표 조회로 반경 안 식사 장소를 거리순으로 (레드테이블, 서울 전역)."""
+    out = [(d, r) for d, r in redtable.near(center[0], center[1], radius_m) if _is_meal_place(r, food_type)]
     out.sort(key=lambda t: (t[0], t[1].name))
     return out
 
@@ -219,14 +229,20 @@ def create_tool(
     gangnam_license: GangnamLicenseDataset,
     redtable_details: RedtableDetailDataset | None = None,
     exits: StationExitDataset | None = None,
+    stations: StationDirectory | None = None,
     *,
     today_fn: Callable[[], date] = lambda: now_kst().date(),
 ) -> ToolSpec:
     def run(params: RestaurantSearchInput) -> RestaurantSearchOutput:
         today = today_fn()
-        center = STATIONS[params.area]
+        station = (stations or StationDirectory(None, None)).get(params.area, refresh=True)
+        if station is None:
+            raise ToolError(ErrorCode.INVALID_INPUT, f"서비스 역 목록에서 '{params.area}' 을(를) 찾지 못했습니다. 서울 지하철역 이름으로 다시 요청해 주세요.")
+        params = params.model_copy(update={"area": station.name})
+        center = (station.latitude, station.longitude)
         radius = params.radius_m or SEARCH_RADIUS_M
-        origin = Origin(kind="station", label=params.area, latitude=center[0], longitude=center[1], source="서비스 기준 역 좌표")
+        origin = Origin(kind="station", label=params.area, latitude=center[0], longitude=center[1],
+                        source="서울시 역사마스터 정보" if params.area not in ("강남역", "역삼역") else "서비스 기준 역 좌표")
         exit_note: str | None = None
         if params.exit_number is not None:
             hit, reason = exits.find(params.area, params.exit_number) if exits else (None, "출구 위치 데이터를 사용할 수 없습니다")
@@ -253,26 +269,25 @@ def create_tool(
         if exit_note:
             notes.append(exit_note)
         notes.append("서울관광재단 식당기본정보는 기준일 조회를 지원하지 않아 데이터 수집 시점 기준입니다(폐업 여부 미포함).")
-        if params.area == "강남역":
-            notes.append("강남구 인허가 데이터에는 강남역 서측(서초구) 업소가 포함되지 않습니다.")
+        notes.append("보완 출처(인허가 정보)는 강남구만 있어, 강남구 밖은 서울관광재단 식당 정보로만 찾습니다.")
 
         statuses: list[SourceStatus] = []
         candidates: list[RestaurantCandidate] = []
 
-        # 메뉴 정보 보유 여부 (varied 정렬에서만 사용하는 부가 정보 — 실패해도 후보 조회는 계속, 값은 null)
         has_menu: set[str] | None = None
-        if redtable_details is not None and params.order == "varied":
-            try:
-                has_menu = {str(k) for k in redtable_details.menus_by_id()[0]}
-            except Exception:  # noqa: BLE001 - 부가 정보라 실패를 후보 조회 실패로 만들지 않는다
-                logger.warning("메뉴 정보 보유 여부를 확인하지 못해 menu_available 을 null 로 둡니다", exc_info=True)
-                has_menu = None
 
         # 1순위: 레드테이블
         primary: list[tuple[float, RestaurantRecord]] = []
         try:
-            records, meta = redtable.load()
-            primary = _filter_area(records, center, params.food_type, radius)
+            meta = redtable.ensure()
+            primary = _near_meal_places(redtable, center, params.food_type, radius)
+            # 메뉴 정보 보유 여부 (varied 정렬에서만 쓰는 부가 정보 — 실패해도 후보 조회는 계속, 값은 null)
+            if redtable_details is not None and params.order == "varied":
+                try:
+                    has_menu = redtable_details.ids_with_menu(r.source_id for _, r in primary)
+                except Exception:  # noqa: BLE001 - 부가 정보라 실패를 후보 조회 실패로 만들지 않는다
+                    logger.warning("메뉴 정보 보유 여부를 확인하지 못해 menu_available 을 null 로 둡니다", exc_info=True)
+                    has_menu = None
             if params.order == "varied":
                 selected = _varied(primary, params.max_results, params.seed, has_menu, radius)
                 notes.append(f"반경 안 후보 {len(primary)}곳에서 거리 구간별로 고르게 {len(selected)}곳을 골랐습니다"

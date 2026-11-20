@@ -14,7 +14,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
 
 from app.api.schemas import (
-    ChatRequest, ChatResponse, DeleteResponse, ErrorResponse, HealthResponse, LogDetailResponse, LogListResponse,
+    ChatRequest, ChatResponse, StationItem, StationListResponse, DeleteResponse, ErrorResponse, HealthResponse, LogDetailResponse, LogListResponse,
     PlanListResponse, PlanSaveResponse,
 )
 from app.core.llm_provider import llm_status
@@ -42,6 +42,16 @@ def health(request: Request):
     return HealthResponse(status="ok", api_keys=d.settings.key_status(),
                           llm={"available": st.available, "provider": st.provider, "model": st.model, "note": st.reason},
                           tools=d.registry.names(), max_replans=d.settings.max_replans)
+
+
+@router.get("/stations", response_model=StationListResponse, tags=["status"], summary="추천 가능한 서울 지하철역 목록")
+def stations(request: Request):
+    d = _deps(request)
+    directory = getattr(d.registry, "stations", None)
+    items = directory.stations() if directory else []
+    return StationListResponse(
+        stations=[StationItem(name=s.name, lines=list(s.lines), latitude=s.latitude, longitude=s.longitude) for s in items],
+        complete=len(items) > 2)
 
 
 # ---------------------------------------------------------------- 대화

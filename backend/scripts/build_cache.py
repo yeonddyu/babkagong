@@ -14,6 +14,7 @@ from app.clients.seoul_opendata import SeoulOpenDataClient
 from app.core.config import load_settings
 from app.datasets.cache import JsonCache
 from app.datasets.restaurants import GangnamLicenseDataset, RedtableDetailDataset, RedtableRestaurantDataset
+from app.datasets.stations import StationDirectory
 
 
 def _timed(label, fn):
@@ -29,14 +30,19 @@ def main() -> None:
     s = load_settings()
     cache = JsonCache(s.cache_dir, s.cache_ttl_hours)
     rt = RedtableClient(s.redtable_api_key, timeout=30)
+    seoul = SeoulOpenDataClient(s.seoul_openapi_key, timeout=30)
     restaurants = RedtableRestaurantDataset(rt, cache)
     details = RedtableDetailDataset(rt, cache, restaurants)
-    license_ = GangnamLicenseDataset(SeoulOpenDataClient(s.seoul_openapi_key, timeout=30), cache)
+    license_ = GangnamLicenseDataset(seoul, cache)
+    rest_food = GangnamLicenseDataset.rest_food(seoul, cache)
+    stations = StationDirectory(seoul, cache, restaurants)
 
-    _timed("레드테이블 식당기본정보", lambda: {k: v for k, v in restaurants.load()[1].items()} | {"area_rows": len(restaurants.load()[0])})
-    _timed("레드테이블 식당운영정보", lambda: details.operations_by_id()[1] | {"area_restaurants": len(details.operations_by_id()[0])})
-    _timed("레드테이블 메뉴정보(한국어)", lambda: details.menus_by_id()[1] | {"area_restaurants": len(details.menus_by_id()[0])})
-    _timed("강남구 일반음식점 인허가", lambda: license_.load()[1] | {"area_rows": len(license_.load()[0])})
+    _timed("레드테이블 식당기본정보 (서울 전역, SQLite)", restaurants.ensure)
+    _timed("레드테이블 식당운영정보 (서울 전역, SQLite)", details.ensure_operations)
+    _timed("레드테이블 메뉴정보(한국어) (서울 전역, SQLite)", details.ensure_menus)
+    _timed("강남구 일반음식점 인허가 (강남구 전체)", lambda: license_.load()[1] | {"rows": len(license_.load()[0])})
+    _timed("강남구 휴게음식점 인허가 (강남구 전체)", lambda: rest_food.load()[1] | {"rows": len(rest_food.load()[0])})
+    _timed("서울 지하철역 목록", lambda: {"refreshed": stations.refresh(), "stations": len(stations.stations())})
 
 
 if __name__ == "__main__":

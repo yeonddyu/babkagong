@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field, model_validator
 
 from app.clients.kma import BASE_HOURS, KMAClient, latlon_to_grid
 from app.core.errors import ErrorCode, ExternalAPIError
-from app.core.geo import STATIONS
+from app.datasets.stations import StationDirectory
 from app.datasets.cache import KST, now_kst
 from app.tools.common import ToolError, ToolKind, ToolSpec
 
@@ -23,7 +23,7 @@ SKY_LABELS = {"1": "맑음", "3": "구름많음", "4": "흐림"}
 
 
 class WeatherInput(BaseModel):
-    area: Literal["강남역", "역삼역"] | None = Field(default=None, description="지역. 위경도를 주지 않으면 필수")
+    area: str | None = Field(default=None, max_length=30, description="서울 지하철역 이름. 위경도를 주지 않으면 필수")
     latitude: float | None = Field(default=None, ge=33.0, le=39.0)
     longitude: float | None = Field(default=None, ge=124.0, le=132.0)
     visit_date: date | None = Field(default=None, description="방문 날짜. 생략하면 오늘(KST)")
@@ -57,7 +57,7 @@ class WeatherOutput(BaseModel):
 
 DESCRIPTION = (
     "방문 날짜·시각의 날씨(기온, 강수확률, 비·눈 여부)를 반영해 음식점·카페 추천 우선순위를 정해야 할 때 사용한다. "
-    "지역(강남역/역삼역) 또는 위경도와 방문 날짜·시각을 넣는다. 오늘부터 약 3일 이내 예보만 제공한다."
+    "지역(서울 지하철역 이름) 또는 위경도와 방문 날짜·시각을 넣는다. 오늘부터 약 3일 이내 예보만 제공한다."
 )
 
 
@@ -87,7 +87,8 @@ def _num(value, cast):
         return None
 
 
-def create_tool(client: KMAClient, *, now_fn: Callable[[], datetime] = now_kst) -> ToolSpec:
+def create_tool(client: KMAClient, *, now_fn: Callable[[], datetime] = now_kst,
+                stations: StationDirectory | None = None) -> ToolSpec:
     def run(params: WeatherInput) -> WeatherOutput:
         now = now_fn()
         defaults: list[str] = []
@@ -95,8 +96,10 @@ def create_tool(client: KMAClient, *, now_fn: Callable[[], datetime] = now_kst) 
         if params.latitude is not None and params.longitude is not None:
             lat, lon, label = params.latitude, params.longitude, params.area
         else:
-            lat, lon = STATIONS[params.area]
-            label = params.area
+            station = (stations or StationDirectory(None, None)).get(params.area)
+            if station is None:
+                raise ToolError(ErrorCode.INVALID_INPUT, f"서비스 역 목록에서 '{params.area}' 을(를) 찾지 못했습니다.")
+            lat, lon, label = station.latitude, station.longitude, station.name
         nx, ny = latlon_to_grid(lat, lon)
 
         visit_date = params.visit_date or now.date()

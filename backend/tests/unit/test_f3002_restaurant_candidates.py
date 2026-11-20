@@ -168,11 +168,18 @@ def test_past_reference_date_includes_later_closed(make_settings):
 
 
 # ---------------------------------------------------------------- 실패
-@pytest.mark.parametrize("args", [{}, {"area": "홍대입구역"}, {"area": "강남역", "max_results": 0}, {"area": "강남역", "reference_date": "어제"}])
+@pytest.mark.parametrize("args", [{}, {"area": "강남역", "max_results": 0}, {"area": "강남역", "reference_date": "어제"}])
 def test_invalid_input(make_settings, args):
     session = default_session()
     assert fail_code(make_registry(make_settings, session).invoke(TOOL, args)) == "INVALID_INPUT"
     assert session.calls == []
+
+
+def test_unknown_station_is_invalid_after_one_station_list_refresh(make_settings):
+    """역 목록에 없는 이름은 목록을 한 번 받아 다시 확인한 뒤 INVALID_INPUT (식당 데이터는 조회하지 않음)."""
+    session = default_session()
+    assert fail_code(make_registry(make_settings, session).invoke(TOOL, {"area": "없는역"})) == "INVALID_INPUT"
+    assert [c["url"] for c in session.calls] and all("subwayStationMaster" in c["url"] for c in session.calls)
 
 
 def test_missing_all_api_keys(make_settings):
