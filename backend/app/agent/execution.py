@@ -131,8 +131,17 @@ def run_weather(ex: ToolExecutor, data: ExecutionData, conditions: Conditions, a
         data.weather_error = r["error"]
 
 
-def run_candidates(ex: ToolExecutor, data: ExecutionData, conditions: Conditions, area: str) -> None:
-    args: dict[str, Any] = {"area": area, "max_results": CANDIDATE_POOL}
+def run_candidates(ex: ToolExecutor, data: ExecutionData, conditions: Conditions, area: str,
+                   seed: int | None = None) -> None:
+    # 가까운 순으로만 고르면 같은 지역은 늘 같은 식당이 나오므로, 반경 안에서 거리 구간별로 고르게 뽑는다.
+    # seed 는 요청마다 바뀌고, 같은 seed 면 같은 후보 (실행 로그로 재현 가능)
+    # 단, 걷기 싫다고 한 요청은 가까운 순을 유지한다 (다양성보다 사용자가 말한 조건이 우선).
+    if conditions.preference.prefer_short_walk:
+        args: dict[str, Any] = {"area": area, "max_results": CANDIDATE_POOL, "order": "distance"}
+    else:
+        args = {"area": area, "max_results": CANDIDATE_POOL, "order": "varied"}
+        if seed is not None:
+            args["seed"] = seed
     if conditions.preference.food_type:
         args["food_type"] = conditions.preference.food_type
     if conditions.base.visit_date:

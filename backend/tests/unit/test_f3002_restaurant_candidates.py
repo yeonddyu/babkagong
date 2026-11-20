@@ -101,7 +101,7 @@ def test_registered_with_schema(make_settings):
     desc = {d["name"]: d for d in reg.describe()}[TOOL]
     assert desc["kind"] == "external_api"
     assert desc["input_schema"]["required"] == ["area"]
-    assert set(desc["input_schema"]["properties"]) == {"area", "food_type", "reference_date", "max_results"}
+    assert set(desc["input_schema"]["properties"]) == {"area", "food_type", "reference_date", "max_results", "order", "seed"}
     assert {"candidates", "query_basis", "source_status"} <= set(desc["output_schema"]["properties"])
 
 
@@ -259,3 +259,68 @@ def test_cafe_and_dessert_brands_excluded(make_settings):
     session = FakeSession().route(REDTABLE, redtable_pages(rows)).route(SEOUL, seoul_rows(SERVICE_GANGNAM_GENERAL_RESTAURANT, []))
     data = ok_data(make_registry(make_settings, session).invoke(TOOL, {"area": "강남역"}))
     assert [c["name"] for c in data["candidates"]] == ["마녀떡볶이"]
+
+
+# ------------------------------------------------- 고르게 섞어 고르기 (같은 식당만 반복되는 문제)
+MENU_URL = "seoul.openapi.redtable.global/api/menu/korean"
+
+
+def _spread_rows():
+    """강남역에서 북쪽으로 약 11m 간격, 60곳 (0~660m, 세 거리 구간에 고루)."""
+    return [rt_row(1000 + i, f"식당{i:02d}", 37.497952 + i * 0.0001, 127.027619) for i in range(60)]
+
+
+def _spread_session(menu_ids):
+    menus = [{"MENU_ID": n, "MENU_NM": "백반", "MENU_PRICE": 9000, "RSTR_ID": rid} for n, rid in enumerate(menu_ids, 1)]
+    return (FakeSession()
+            .route(MENU_URL, redtable_pages(menus, page_size=50))
+            .route(REDTABLE, redtable_pages(_spread_rows(), page_size=50))
+            .route(SEOUL, seoul_rows(SERVICE_GANGNAM_GENERAL_RESTAURANT, [])))
+
+
+def _ids(data):
+    return [c["source_id"] for c in data["candidates"]]
+
+
+def test_distance_order_is_default_and_always_nearest(make_settings):
+    reg = make_registry(make_settings, _spread_session([]))
+    data = ok_data(reg.invoke(TOOL, {"area": "강남역", "max_results": 10}))
+    assert data["order"] == "distance" and data["pool_size"] == 60
+    assert _ids(data) == [str(1000 + i) for i in range(10)]
+    assert all(c["menu_available"] is None for c in data["candidates"])  # distance 정렬은 메뉴 조회를 하지 않음
+
+
+def test_varied_picks_across_distance_bands_and_is_reproducible(make_settings):
+    reg = make_registry(make_settings, _spread_session([]))
+    args = {"area": "강남역", "max_results": 9, "order": "varied", "seed": 7}
+    a = ok_data(reg.invoke(TOOL, args))
+    b = ok_data(reg.invoke(TOOL, args))
+    c = ok_data(reg.invoke(TOOL, dict(args, seed=8)))
+    assert _ids(a) == _ids(b)  # 같은 seed → 같은 결과 (재현 가능)
+    assert _ids(a) != _ids(c)  # seed 가 바뀌면 다른 후보
+    dists = [x["distance_m"] for x in a["candidates"]]
+    assert dists == sorted(dists)  # 고른 뒤에는 거리순
+    assert sum(d < 250 for d in dists) == 3 and sum(250 <= d < 450 for d in dists) == 3 and sum(d >= 450 for d in dists) == 3
+    assert _ids(a) != [str(1000 + i) for i in range(9)]  # 가장 가까운 9곳 고정이 아님
+    assert any("고르게" in n for n in a["query_basis"]["notes"])
+
+
+def test_varied_prefers_restaurants_with_menu_data(make_settings):
+    with_menu = [1001, 1003, 1030, 1050]
+    reg = make_registry(make_settings, _spread_session(with_menu))
+    data = ok_data(reg.invoke(TOOL, {"area": "강남역", "max_results": 6, "order": "varied", "seed": 1}))
+    flags = {c["source_id"]: c["menu_available"] for c in data["candidates"]}
+    assert {str(i) for i in with_menu} <= set(flags)  # 메뉴 정보가 있는 곳이 먼저 뽑힘
+    assert all(flags[str(i)] is True for i in with_menu)
+    assert sum(v is False for v in flags.values()) == 2
+
+
+def test_varied_menu_lookup_failure_keeps_candidates(make_settings):
+    session = (FakeSession()
+               .route(MENU_URL, lambda *_: (_ for _ in ()).throw(RuntimeError("menu down")))
+               .route(REDTABLE, redtable_pages(_spread_rows(), page_size=50))
+               .route(SEOUL, seoul_rows(SERVICE_GANGNAM_GENERAL_RESTAURANT, [])))
+    data = ok_data(make_registry(make_settings, session).invoke(
+        TOOL, {"area": "강남역", "max_results": 5, "order": "varied", "seed": 3}))
+    assert len(data["candidates"]) == 5
+    assert all(c["menu_available"] is None for c in data["candidates"])  # 확인 못 하면 null, 만들지 않음

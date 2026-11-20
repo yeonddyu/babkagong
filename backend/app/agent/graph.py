@@ -5,6 +5,8 @@
 """
 from __future__ import annotations
 
+import random
+
 import re
 import uuid
 from dataclasses import asdict
@@ -64,6 +66,7 @@ class MainAgent:
         plan_repo: Any | None = None,
         today_fn: Callable[[], date] = lambda: now_kst().date(),
         now_fn: Callable[[], datetime] = now_kst,
+        seed_fn: Callable[[], int] = lambda: random.randrange(2**31),
     ):
         self.registry = registry
         self.llm = llm
@@ -73,6 +76,7 @@ class MainAgent:
         self.bus = bus or EventBus()  # 구독자가 없어도 동작 (발행자는 구독자를 모름)
         self.today_fn = today_fn
         self.now_fn = now_fn
+        self.seed_fn = seed_fn  # 후보를 고르게 섞는 기준값 (테스트에서 고정)
         self.graph = self._build()
 
     # ------------------------------------------------------------ graph
@@ -196,7 +200,7 @@ class MainAgent:
         if "get_weather_context" in tools and data.weather is None and data.weather_error is None:
             run_weather(ex, data, cond, area, today)
         if area not in data.areas_searched:
-            run_candidates(ex, data, cond, area)
+            run_candidates(ex, data, cond, area, seed=self.seed_fn())
             exclude = set(state.get("exclude_keys") or [])
             names = set(state.get("exclude_names") or [])
             if exclude or names:  # '더 보기': 이미 보여 준 곳(같은 이름의 중복 등록 포함)은 상세 조회·추천 대상에서 뺀다

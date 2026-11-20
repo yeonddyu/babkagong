@@ -55,10 +55,10 @@ def build_plan(analysis: AnalysisResult, conditions: Conditions, today: date) ->
     else:
         steps.append(PlanStep(order=0, tool="get_weather_context", purpose="방문 시각 날씨로 우선순위 가산점 계산",
                               inputs_from="요청 분석: area, visit_date, meal_time(없으면 식사 구분 기준 시각)"))
-    steps.append(PlanStep(order=0, tool="search_restaurant_candidates", purpose="지역·음식 종류로 음식점 후보 확보",
+    steps.append(PlanStep(order=0, tool="search_restaurant_candidates", purpose=f"지역·음식 종류로 반경 안 음식점 후보 {CANDIDATE_POOL}곳을 거리 구간별로 고르게 확보 (메뉴 정보 있는 곳 우선)",
                           inputs_from="요청 분석: area, food_type, visit_date"))
     steps.append(PlanStep(order=0, tool="get_restaurant_details",
-                          purpose=f"가까운 후보 {DETAIL_BATCH}곳의 메뉴·가격·영업시간 확인",
+                          purpose=f"후보 중 가까운 {DETAIL_BATCH}곳의 메뉴·가격·영업시간 확인",
                           inputs_from="search_restaurant_candidates: candidates[].source, source_id"))
     steps.append(PlanStep(order=0, tool="search_nearby_cafes", purpose=f"조건을 충족한 식당 상위 {CAFE_TARGETS}곳 주변 카페 검색",
                           inputs_from="get_restaurant_details/후보: latitude, longitude (+ 날씨·도보 선호로 반경 결정)"))

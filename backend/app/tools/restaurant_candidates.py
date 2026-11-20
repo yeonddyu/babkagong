@@ -2,9 +2,17 @@
 
 1순위: 서울관광재단 음식관광 API 식당기본정보 (상세정보 Tool 과 ID 로 연결 가능)
 보완 : 강남구 일반음식점 인허가 정보 (1순위로 max_results 를 채우지 못할 때 보충)
+
+정렬(order)
+- distance (기본): 가까운 순. 같은 요청이면 항상 같은 후보.
+- varied : 반경 안 후보를 거리 구간(가까움/중간/멂)으로 나누고 seed 로 구간 안을 섞은 뒤,
+           메뉴 정보가 있는 곳을 먼저, 구간을 번갈아 뽑는다. 결과는 거리순으로 돌려준다.
+           (가장 가까운 몇 곳만 반복 추천되는 문제 해결. seed 가 같으면 같은 결과 → 재현 가능)
 """
 from __future__ import annotations
 
+import logging
+import random
 import re
 from datetime import date
 from typing import Callable, Literal
@@ -18,15 +26,19 @@ from app.datasets.restaurants import (
     SOURCE_GANGNAM_LICENSE,
     SOURCE_REDTABLE,
     GangnamLicenseDataset,
+    RedtableDetailDataset,
     RedtableRestaurantDataset,
     RestaurantRecord,
     license_open_on,
 )
 from app.tools.common import ToolError, ToolKind, ToolSpec
 
+logger = logging.getLogger(__name__)
+
 TOOL_NAME = "search_restaurant_candidates"
 SEARCH_RADIUS_M = 700  # 역 중심 도보 약 10분
 DUPLICATE_DISTANCE_M = 30
+VARIED_BANDS_M = (250, 450)  # varied 정렬의 거리 구간 경계 (0~250, 250~450, 450~반경)
 
 Area = Literal["강남역", "역삼역"]
 FoodType = Literal["한식", "중식", "일식", "양식", "분식", "기타"]
@@ -55,6 +67,10 @@ class RestaurantSearchInput(BaseModel):
         default=None, description="영업 여부 판단 기준일(YYYY-MM-DD). 생략하면 오늘(KST)"
     )
     max_results: int = Field(default=10, ge=1, le=50, description="최대 결과 수 (1~50, 기본 10)")
+    order: Literal["distance", "varied"] = Field(
+        default="distance",
+        description="distance: 가까운 순(기본). varied: 반경 안에서 거리 구간별로 고르게 섞어 고름(메뉴 정보 있는 곳 우선)")
+    seed: int | None = Field(default=None, description="order=varied 의 섞기 기준값. 같으면 같은 결과, 생략하면 매번 다름")
 
 
 class RestaurantCandidate(BaseModel):
@@ -71,6 +87,7 @@ class RestaurantCandidate(BaseModel):
     food_type: str | None = Field(description="정규화 음식 종류")
     business_status: str | None = Field(default=None, description="인허가 데이터의 현재 영업상태 (해당 출처만)")
     detail_available: bool = Field(description="get_restaurant_details 로 메뉴·운영정보 조회 가능 여부")
+    menu_available: bool | None = Field(default=None, description="출처에 메뉴 정보가 있는지 (확인 못 하면 null)")
 
 
 class QueryBasis(BaseModel):
@@ -97,6 +114,8 @@ class RestaurantSearchOutput(BaseModel):
     center: dict[str, float]
     radius_m: int
     food_type: str | None
+    order: str = "distance"
+    pool_size: int = Field(default=0, description="반경·조건을 통과한 1순위 출처 전체 후보 수 (이 중에서 max_results 만큼 고름)")
     query_basis: QueryBasis
     candidates: list[RestaurantCandidate]
     source_status: list[SourceStatus]
@@ -121,7 +140,28 @@ def _food_type_of(category: str | None) -> str | None:
     return CATEGORY_MAP.get(category, "기타")
 
 
-def _to_candidate(rec: RestaurantRecord, center: tuple[float, float], distance: float) -> RestaurantCandidate:
+def _varied(pool: list[tuple[float, RestaurantRecord]], n: int, seed: int | None,
+            has_menu: set[str] | None) -> list[tuple[float, RestaurantRecord]]:
+    """거리 구간별로 섞어 고르게 n 곳을 뽑는다. 구간 안에서는 메뉴 정보가 있는 곳이 먼저."""
+    rng = random.Random(seed)
+    bands: list[list[tuple[float, RestaurantRecord]]] = [[] for _ in range(len(VARIED_BANDS_M) + 1)]
+    for item in pool:
+        bands[sum(item[0] >= b for b in VARIED_BANDS_M)].append(item)
+    for band in bands:
+        rng.shuffle(band)
+        if has_menu is not None:
+            band.sort(key=lambda t: t[1].source_id not in has_menu)  # 안정 정렬: 섞은 순서 유지
+    picked: list[tuple[float, RestaurantRecord]] = []
+    while len(picked) < n and any(bands):
+        for band in bands:
+            if band and len(picked) < n:
+                picked.append(band.pop(0))
+    picked.sort(key=lambda t: (t[0], t[1].name))
+    return picked
+
+
+def _to_candidate(rec: RestaurantRecord, center: tuple[float, float], distance: float,
+                  has_menu: set[str] | None = None) -> RestaurantCandidate:
     return RestaurantCandidate(
         name=rec.name,
         source=rec.source,
@@ -136,6 +176,8 @@ def _to_candidate(rec: RestaurantRecord, center: tuple[float, float], distance: 
         food_type=_food_type_of(rec.category),
         business_status=rec.status_name if rec.source == SOURCE_GANGNAM_LICENSE else None,
         detail_available=rec.source == SOURCE_REDTABLE,
+        menu_available=(rec.source_id in has_menu) if (has_menu is not None and rec.source == SOURCE_REDTABLE)
+        else (False if rec.source != SOURCE_REDTABLE else None),
     )
 
 
@@ -158,6 +200,7 @@ def _filter_area(records, center, food_type):
 def create_tool(
     redtable: RedtableRestaurantDataset,
     gangnam_license: GangnamLicenseDataset,
+    redtable_details: RedtableDetailDataset | None = None,
     *,
     today_fn: Callable[[], date] = lambda: now_kst().date(),
 ) -> ToolSpec:
@@ -184,13 +227,27 @@ def create_tool(
         statuses: list[SourceStatus] = []
         candidates: list[RestaurantCandidate] = []
 
+        # 메뉴 정보 보유 여부 (varied 정렬에서만 사용하는 부가 정보 — 실패해도 후보 조회는 계속, 값은 null)
+        has_menu: set[str] | None = None
+        if redtable_details is not None and params.order == "varied":
+            try:
+                has_menu = {str(k) for k in redtable_details.menus_by_id()[0]}
+            except Exception:  # noqa: BLE001 - 부가 정보라 실패를 후보 조회 실패로 만들지 않는다
+                logger.warning("메뉴 정보 보유 여부를 확인하지 못해 menu_available 을 null 로 둡니다", exc_info=True)
+                has_menu = None
+
         # 1순위: 레드테이블
         primary: list[tuple[float, RestaurantRecord]] = []
         try:
             records, meta = redtable.load()
             primary = _filter_area(records, center, params.food_type)
-            selected = primary[: params.max_results]
-            candidates.extend(_to_candidate(r, center, d) for d, r in selected)
+            if params.order == "varied":
+                selected = _varied(primary, params.max_results, params.seed, has_menu)
+                notes.append(f"반경 안 후보 {len(primary)}곳에서 거리 구간별로 고르게 {len(selected)}곳을 골랐습니다"
+                             + (" (메뉴 정보가 있는 곳 우선)." if has_menu is not None else "."))
+            else:
+                selected = primary[: params.max_results]
+            candidates.extend(_to_candidate(r, center, d, has_menu) for d, r in selected)
             statuses.append(SourceStatus(
                 source=SOURCE_REDTABLE, provider="서울관광재단 음식관광 API", ok=True,
                 returned=len(selected), data_fetched_at=meta.get("fetched_at"),
@@ -221,7 +278,7 @@ def create_tool(
                     ):
                         skipped += 1
                         continue
-                    candidates.append(_to_candidate(rec, center, dist))
+                    candidates.append(_to_candidate(rec, center, dist, has_menu))
                     added += 1
                 statuses.append(SourceStatus(
                     source=SOURCE_GANGNAM_LICENSE, provider="서울 열린데이터광장 API", ok=True, returned=added,
@@ -252,6 +309,8 @@ def create_tool(
             center={"latitude": center[0], "longitude": center[1]},
             radius_m=SEARCH_RADIUS_M,
             food_type=params.food_type,
+            order=params.order,
+            pool_size=len(primary),
             query_basis=QueryBasis(
                 requested_date=requested, applied_date=applied, default_applied=requested is None,
                 differs_from_request=differs, notes=notes,

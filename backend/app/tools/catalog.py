@@ -29,7 +29,7 @@ def build_default_registry(settings: Settings | None = None, *, session=None, to
 
     registry = ToolRegistry()
     date_kw = {"today_fn": today_fn} if today_fn else {}
-    registry.register(restaurant_candidates.create_tool(redtable_restaurants, gangnam_license, **date_kw))
+    registry.register(restaurant_candidates.create_tool(redtable_restaurants, gangnam_license, redtable_details, **date_kw))
     registry.register(restaurant_details.create_tool(redtable_restaurants, redtable_details, gangnam_license))
     rest_food = GangnamLicenseDataset.rest_food(seoul_client, cache)
     registry.register(nearby_cafes.create_tool(kakao_client, rest_food, **date_kw))
