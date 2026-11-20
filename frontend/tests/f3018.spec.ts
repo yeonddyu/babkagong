@@ -90,7 +90,7 @@ describe('ChatView', () => {
     const router = makeRouter()
     const w = mount(ChatView, { global: { plugins: [router] } })
     await flushPromises()
-    await w.findAll('.area-btn').find((b) => b.text() === '역삼역')!.trigger('click')
+    await w.findAll('.area-btn').find((b) => b.text() === '역삼')!.trigger('click')
     await w.find('form.composer input').setValue('점심 추천')
     await w.find('form.composer').trigger('submit')
     await flushPromises()

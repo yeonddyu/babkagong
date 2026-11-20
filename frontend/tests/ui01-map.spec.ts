@@ -185,3 +185,12 @@ describe('출구 기준 (N번 출구 근처)', () => {
     expect(w.findAll('aside.mapside .svg-pin.exit')).toHaveLength(1)
   })
 })
+
+describe('역 기준점 핀', () => {
+  it('응답 기준점이 역이면 그 좌표에 역 핀을 그린다 (기본 두 역이 아니어도)', async () => {
+    const origin = { kind: 'station' as const, label: '선릉역', latitude: 37.504571, longitude: 127.048505, source: '서울시 역사마스터 정보' }
+    const w = mount(MapPanel, { props: { recommendations: [makeRec({ area: '선릉역', latitude: 37.5050, longitude: 127.0480 })], selected: 0, origin } })
+    await flushPromises()
+    expect(w.findAll('.svg-pin.station .station-label').map((t) => t.text())).toEqual(['선릉역'])
+  })
+})

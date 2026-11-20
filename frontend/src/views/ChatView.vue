@@ -125,12 +125,15 @@ async function scroll() {
     <div class="left">
       <WeatherMascot :weather="latest?.weather" :has-result="!!latest" :policy="latest?.weather_policy" />
       <div class="toolbar card">
-        <div class="area-select" aria-label="지역 선택">
-          <span class="muted small">지역</span>
-          <button v-for="a in stationNames" :key="a" class="area-btn" :class="{ on: area === a }" :aria-pressed="area === a"
-                  @click="area = a">{{ a }}</button>
+        <div class="toolbar-head">
+          <span class="small">역 선택 <span class="muted">· 역삼역(SSAFY) 주변</span></span>
+          <button class="btn" @click="newConversation">새 대화</button>
         </div>
-        <button class="btn" @click="newConversation">새 대화</button>
+        <div class="area-select" role="group" aria-label="역 선택">
+          <button v-for="a in stationNames" :key="a" class="area-btn" :class="{ on: area === a }" :aria-pressed="area === a"
+                  @click="area = a">{{ a.replace(/역$/, '') }}</button>
+        </div>
+        <p class="area-hint small muted">역 이름 없이 보내면 <b>{{ area }}</b> 주변에서 찾아요</p>
       </div>
       <StatusBanner />
 
@@ -213,11 +216,14 @@ async function scroll() {
 .map-empty { min-height: 360px; display: grid; align-content: center; padding: 28px; border-radius: 26px;
   background: repeating-linear-gradient(45deg, var(--paper), var(--paper) 14px, #fbf4ea 14px, #fbf4ea 28px); }
 .empty-title { font-family: 'Gowun Dodum', sans-serif; font-size: 20px; margin: 0 0 6px; }
-.toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 14px; }
-.area-select { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.area-btn { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 6px 14px; }
-.area-btn.on { background: var(--accent); border-color: var(--accent); color: #fff; }
-.toolbar > .btn { margin-left: auto; }
+.toolbar { display: grid; gap: 8px; padding: 10px 14px; }
+.toolbar-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.area-select { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+.area-btn { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 6px 4px; white-space: nowrap; }
+.area-btn.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+.area-btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.area-hint { margin: 0; }
+@media (max-width: 520px) { .area-select { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .chat { display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 22px; }
 .turns { max-height: min(56vh, 560px); min-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 4px; }
 .welcome h2 { font-family: 'Gowun Dodum', sans-serif; margin: 0 0 8px; }
