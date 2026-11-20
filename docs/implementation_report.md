@@ -239,7 +239,7 @@ Agent·API
 
 | # | 결함 | 수정 커밋 | 회귀 테스트 |
 |---|---|---|---|
-| 1 | 명시한 역이 이전 대화·LLM·역 칩으로 바뀜 (미지원 역 명시 시 다른 역 탐색) | 2e17dbd | test_review_fixes_area.py (4) |
+| 1 | 명시한 역이 이전 대화·LLM·역 칩으로 바뀜 (미지원 역 명시 시 다른 역 탐색) | 2e17dbd, 7a77421 | test_review_fixes_area.py (5) |
 | 2 | 전체 답변의 근거 없는 가격·편의시설 주장 통과, 카페 미확인 식당도 '코스' 로 셈 | 3c58e80 | test_review_fixes_message.py (4) |
 | 3 | 다중 프로세스 SQLite 갱신 시 고정 임시 파일 충돌·중복 수집 | 1d7ea99 | test_review_fixes_sqlite.py (실제 프로세스 2개, 2) |
 | 4 | '120번 출구' → 20번, 느슨한 카카오 출구 매칭, 출구 미발견·인접 재계획 시 기준점 표기 불일치 | daf4054 | test_review_fixes_exit.py (5) |
@@ -249,11 +249,15 @@ Agent·API
 | 8 | 카카오 출구 정보를 디스크에 저장하면서 문서는 '저장하지 않음' | 6d6aebb | test_review_fixes_exit_cache.py (2) |
 
 검증 (실제 실행 결과)
-- backend pytest 303 passed (수정 전 280), frontend vitest 86 passed (수정 전 84), npm run build 통과, check_secrets: 키가 포함된 파일 없음.
+- backend pytest 304 passed (수정 전 280), frontend vitest 86 passed (수정 전 84), npm run build 통과, check_secrets: 키가 포함된 파일 없음.
 - integration: 15 passed, 3 BLOCKED — 서울관광재단 API 직접 호출 3개(식당·메뉴·운영정보 첫 페이지)가 HTTP 429. 정상 키 직접 호출은 검증하지 못함.
 - 라이브 LLM 테스트 2개는 이번 수정으로 기대값이 바뀌어 갱신: '안녕!' 은 규칙 처리(LLM 0회),
   최종 문장은 LLM 또는 템플릿(LLM 문장이면 숫자·단정 검사 통과 필수). 실제 GMS 5회 표본에서 LLM 문장 5/5 채택.
 - scripts.build_cache 는 실행하지 않음 (기존 캐시·모의 응답 사용).
+- 실제 서버(GMS) 확인 중 추가 발견·수정(7a77421): 실제 LLM 이 '같은 조건에서 홍대입구역에서 점심' 을 out_of_scope 로 분류해 clarify=false,
+  그리고 unsupported_area 가 API 응답 스키마에 빠져 있었음 → 규칙이 추천+서비스 밖 역을 찾으면 의도 유지, 스키마에 필드 추가.
+  수정 후 실제 서버: clarify=true·unsupported_area=홍대입구역·Tool 0회, '선정릉역 선릉 쪽과 무관한 점심' → 선정릉역,
+  '강남역 13번 출구에서 500m 이내' → 기준점·criteria·notices 모두 강남역 중심.
 
 남은 확인 사항
 - 카카오 운영정책 30항(사전 승낙 없는 저장 금지)과 대화 맥락·저장한 계획의 카페 정보 보관의 관계는 확인되지 않음 (docs/api_verification.md 2.4).
