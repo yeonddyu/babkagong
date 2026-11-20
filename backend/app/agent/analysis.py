@@ -271,12 +271,9 @@ def _evidence_guard(result: AnalysisResult, message: str, rule: AnalysisResult,
     if c.constraint.budget_max and rule.conditions.constraint.budget_max is None and not re.search(
             r"\d\s*(?:원|만|천)|만\s*원|[일이삼사오육칠팔구]\s*천\s*원", message):
         c.constraint.budget_max = None
-    if c.constraint.max_walk_m and not re.search(r"\d", message):
-        c.constraint.max_walk_m = None
-    if rule.conditions.constraint.max_walk_m is not None:  # 발화의 숫자로 규칙이 찾은 거리 상한이 우선
-        c.constraint.max_walk_m = rule.conditions.constraint.max_walk_m
-    if rule.conditions.constraint.max_walk_minutes is not None:
-        c.constraint.max_walk_minutes = rule.conditions.constraint.max_walk_minutes
+    # 거리와 도보 시간은 각각 해당 단위가 있는 발화에서만 적용한다.
+    c.constraint.max_walk_m = rule.conditions.constraint.max_walk_m
+    c.constraint.max_walk_minutes = rule.conditions.constraint.max_walk_minutes
     if c.base.visit_date and rule.conditions.base.visit_date is None and not re.search(r"\d|오늘|내일|모레|요일", message):
         c.base.visit_date = None
     if (c.base.meal_time or c.base.cafe_time) and not re.search(r"\d", message):
@@ -291,8 +288,6 @@ def _evidence_guard(result: AnalysisResult, message: str, rule: AnalysisResult,
         c.constraint.end_by = None
     # 출구 번호는 발화의 'N번 출구' 표현으로만 정한다 (LLM 값은 쓰지 않음)
     c.preference.exit_number = rule.conditions.preference.exit_number
-    if c.constraint.max_walk_minutes and not re.search(r"\d", message):
-        c.constraint.max_walk_minutes = None
     # '가까운 곳/많이 걷기 싫다' 표현이 없는데 도보 선호를 넣은 경우 제거 (실제 GMS 응답에서 확인된 문제)
     if c.preference.prefer_short_walk and not SHORT_WALK_PATTERN.search(message):
         c.preference.prefer_short_walk = None

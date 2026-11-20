@@ -15,15 +15,29 @@ def test_parse_single_digit_metres():
     assert parse_walk("도보 3분 이내") == (None, 3)
 
 
-def test_rule_metres_beat_llm():
+def test_rule_walk_limits_require_the_matching_unit():
     class Fake:
         def with_structured_output(self, _):
             return self
 
         def invoke(self, _):
             return AnalysisResult(intent="recommend", reason="", decided_by="llm",
-                                  conditions=Conditions.model_validate({"preference": {"area": "역삼역"}}))
-    assert analyze("역삼역 9m 이내 점심", TODAY, Fake()).conditions.constraint.max_walk_m == 9
+                                  conditions=Conditions.model_validate({
+                                      "preference": {"area": "역삼역"},
+                                      "constraint": {"max_walk_m": 300, "max_walk_minutes": 10},
+                                  }))
+
+    for message, expected in [
+        ("역삼역 12시 점심", (None, None)),
+        ("역삼역 1만원 이하 3번 출구 점심", (None, None)),
+        ("역삼역 9m 이내 점심", (9, None)),
+        ("역삼역 도보 3분 이내 점심", (None, 3)),
+        ("역삼역 200m 이내고 도보 3분 이내 점심", (200, 3)),
+    ]:
+        result = analyze(message, TODAY, Fake())
+        assert result.decided_by == "llm"
+        constraint = result.conditions.constraint
+        assert (constraint.max_walk_m, constraint.max_walk_minutes) == expected
 
 
 def test_nine_metre_limit_applied_in_final_check(make_settings):
