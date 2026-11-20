@@ -110,6 +110,8 @@ class ExecutionData:
     cafes: dict[str, dict[str, Any]] = field(default_factory=dict)  # 식당 키 → 카페 Tool data
     cafe_errors: dict[str, dict[str, str]] = field(default_factory=dict)
     areas_searched: list[str] = field(default_factory=list)
+    origins: dict[str, dict[str, Any]] = field(default_factory=dict)  # 검색한 역 → 실제로 쓴 거리 기준점 (역 중심/출구)
+    exit_notice: str | None = None  # 요청한 출구를 찾지 못했을 때 안내
 
 
 def cand_key(c: dict[str, Any]) -> str:
@@ -175,6 +177,11 @@ def run_candidates(ex: ToolExecutor, data: ExecutionData, conditions: Conditions
     excluded = set(conditions.preference.exclude_food_types)
     seen = {cand_key(c) for c in data.candidates}
     origin = r["data"].get("origin") or {}
+    if origin:
+        data.origins[area] = origin
+    if "exit_number" in args and origin.get("kind") != "exit":
+        note = next((x for x in (r["data"].get("query_basis") or {}).get("notes", []) if "출구" in x), None)
+        data.exit_notice = note or f"{args['exit_number']}번 출구 위치를 확인하지 못해 {area} 중심 기준으로 거리를 계산했어요."
     for c in r["data"]["candidates"]:
         if cand_key(c) not in seen and c.get("food_type") not in excluded:
             c = dict(c, searched_area=area, distance_from=origin.get("label") or area)

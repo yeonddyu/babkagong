@@ -135,7 +135,7 @@ def parse_budget(text: str) -> int | None:
     return None
 
 
-EXIT_PATTERN = re.compile(r"(\d{1,2})\s*번\s*출구")
+EXIT_PATTERN = re.compile(r"(?<!\d)(\d{1,2})\s*번\s*출구")  # '120번 출구' 의 '20' 을 잡지 않음
 
 
 def parse_exit(text: str) -> int | None:

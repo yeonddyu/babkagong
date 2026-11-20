@@ -97,14 +97,18 @@ def _notices(ex: ToolExecutor | None) -> list[str]:
     return notices
 
 
+def _applied_origin(data: ExecutionData | None, recommendations: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """화면 지도에 표시할 실제 거리 기준점: 1순위 추천을 찾은 역의 기준점 (인접 역 재계획이면 그 역)."""
+    if not data:
+        return None
+    if recommendations and recommendations[0].get("area") in data.origins:
+        return data.origins[recommendations[0]["area"]]
+    return (data.candidate_meta or {}).get("origin")
+
+
 def _exit_notice(conditions: Conditions, data: ExecutionData | None) -> list[str]:
     """사용자가 말한 출구를 찾지 못해 역 중심으로 계산했다면 알린다."""
-    n = conditions.preference.exit_number
-    meta = (data.candidate_meta or {}) if data else {}
-    if not n or (meta.get("origin") or {}).get("kind") != "station":
-        return []
-    reason = next((x for x in ((meta.get("query_basis") or {}).get("notes") or []) if "출구" in x), None)
-    return [reason or f"{n}번 출구 위치를 확인하지 못해 역 중심 기준으로 거리를 계산했어요."]
+    return [data.exit_notice] if (data and data.exit_notice and conditions.preference.exit_number) else []
 
 
 def _weather_mismatch(analysis: AnalysisResult, data: ExecutionData | None) -> list[str]:
@@ -346,7 +350,7 @@ def build_response(
         "notices": _notices(ex) + _weather_mismatch(analysis, data) + _exit_notice(conditions, data),
         "disclaimer": HEALTH_DISCLAIMER if analysis.mentions_health else None,
         "query_basis": (data.candidate_meta or {}).get("query_basis") if data else None,
-        "origin": (data.candidate_meta or {}).get("origin") if data else None,
+        "origin": _applied_origin(data, recommendations),
         "saved_plan": (save_result or {}).get("plan"),
         "plan_conflicts": (save_result or {}).get("conflicts", []),
         "save_result": save_result,

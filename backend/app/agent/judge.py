@@ -323,12 +323,23 @@ def evaluate(data: ExecutionData, conditions: Conditions, today: date,
     ref, basis = reference_time(c)
     if ref:
         criteria.append(f"영업시간: {visit.isoformat()} {ref.strftime('%H:%M')} 영업 여부 ({basis}), 미확인은 경고 후 순위 하락")
+    origins = [data.origins[a] for a in data.areas_searched if a in data.origins]  # 실제로 쓴 기준점 (검색 순서)
+    first = origins[0]["label"] if origins else (c.preference.area or "역")
     if c.constraint.max_walk_m:
-        criteria.append(f"거리: {'%d번 출구' % c.preference.exit_number if c.preference.exit_number else '역'}에서 직선 {c.constraint.max_walk_m}m 이내")
+        criteria.append(f"거리: {first}에서 직선 {c.constraint.max_walk_m}m 이내")
     if c.constraint.max_walk_minutes:
         criteria.append(f"도보: 약 {c.constraint.max_walk_minutes}분 이내 (직선거리 기반 추정)")
-    if c.preference.exit_number:
-        criteria.append(f"거리 기준점: {c.preference.exit_number}번 출구 (카카오 로컬 출구 좌표, 찾지 못하면 역 중심)")
+    if origins:
+        o = origins[0]
+        if o.get("kind") == "exit":
+            basis = f"거리 기준점: {o['label']} (카카오 로컬 출구 좌표)"
+        elif c.preference.exit_number:
+            basis = f"거리 기준점: {o['label']} 중심 ({c.preference.exit_number}번 출구를 찾지 못함)"
+        else:
+            basis = f"거리 기준점: {o['label']} 중심"
+        if len(origins) > 1:
+            basis += " · 인접 역 재계획: " + ", ".join(f"{x['label']} 중심" for x in origins[1:])
+        criteria.append(basis)
     if c.preference.food_type:
         criteria.append(f"음식 종류: {c.preference.food_type}")
     if c.preference.exclude_food_types:

@@ -40,11 +40,12 @@ def test_parse_exit():
 
 def test_match_exit_requires_exact_subway_exit():
     docs = [doc("강남역 2호선 11번출구"), doc("강남역11번출구약국", cat="의료,건강 > 약국"), doc("강남역 2호선 1번출구")]
-    hit = match_exit(docs, "강남역", 11)
+    lines = ("2호선", "신분당선")
+    hit = match_exit(docs, "강남역", 11, lines)
     assert hit["name"] == "강남역 2호선 11번출구" and hit["latitude"] == EXIT_11[0]
-    assert match_exit(docs, "강남역", 1)["name"] == "강남역 2호선 1번출구"  # '11번출구' 와 섞이지 않음
-    assert match_exit(docs, "강남역", 13) is None
-    assert match_exit([doc("강남역 2호선 4번출구"), doc("강남역 신분당선 4번출구")], "강남역", 4) is None  # 여러 곳이면 판단 안 함
+    assert match_exit(docs, "강남역", 1, lines)["name"] == "강남역 2호선 1번출구"  # '11번출구' 와 섞이지 않음
+    assert match_exit(docs, "강남역", 13, lines) is None
+    assert match_exit([doc("강남역 2호선 4번출구"), doc("강남역 신분당선 4번출구")], "강남역", 4, lines) is None  # 여러 곳이면 판단 안 함
 
 
 def run(make_settings, msg, exits):
