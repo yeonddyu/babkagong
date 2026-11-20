@@ -21,15 +21,14 @@ interface Turn {
 
 // 서비스 역: 역삼역(SSAFY) 과 가까운 6곳. 서버 목록(/api/stations)을 쓰고, 못 받으면 아래 기본값
 const SERVICE_AREAS: Area[] = ['역삼역', '강남역', '언주역', '신논현역', '선릉역', '선정릉역']
-const EXAMPLES = [
-  '강남역에서 점심 먹고 카공할 건데 추천해줘',
-  '역삼역에서 1만 5천 원 이하로 12시에 점심 먹고 카페 가고 싶어',
-  '오늘 비가 오는데 강남역에서 점심 먹고 카공하고 싶어. 많이 걷기는 싫어.',
-  '선릉역 근처에서 1만원 이하로 점심 먹고 카공',
-  '같은 조건에서 한식 말고 일식으로 바꿔줘',
-]
-
 const area = ref<Area>('강남역')
+// 예시 질문: 고른 역에 맞춰 바뀐다 (누르면 그대로 보냄)
+const examples = computed(() => [
+  `${area.value}에서 점심 먹고 카공할 건데 추천해줘`,
+  `${area.value}에서 1만 5천 원 이하로 12시에 점심 먹고 카페 가고 싶어`,
+  `오늘 비가 오는데 ${area.value}에서 점심 먹고 카공하고 싶어. 많이 걷기는 싫어.`,
+  `${area.value} 도보 5분 이내에서 저녁 먹고 카공`,
+])
 const stationNames = ref<string[]>([...SERVICE_AREAS])
 api.stations().then((r) => { if (r.stations.length) stationNames.value = r.stations.map((s) => s.name) }).catch(() => { /* 기본값 사용 */ })
 const input = ref('')
@@ -144,7 +143,7 @@ async function scroll() {
             <p class="muted">역삼역(SSAFY) 주변 6개 역에서, 조건을 말하면 메뉴 가격·영업시간·날씨를 확인해서 식당과 근처 카페를 함께 골라 드려요.
               확인되지 않은 정보는 ‘미확인’으로 표시해요.</p>
             <div class="examples">
-              <button v-for="ex in EXAMPLES" :key="ex" class="btn example" @click="send(ex)">{{ ex }}</button>
+              <button v-for="ex in examples" :key="ex" class="btn example" @click="send(ex)">{{ ex }}</button>
             </div>
           </div>
 

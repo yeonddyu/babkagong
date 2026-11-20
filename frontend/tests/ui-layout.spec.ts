@@ -111,3 +111,20 @@ describe('역 선택 (역삼역 주변 6곳)', () => {
     expect(body.area).toBe('선릉역')
   })
 })
+
+describe('예시 질문', () => {
+  it('고른 역에 맞춰 예시 질문이 바뀌고, 누르면 그 문장을 보낸다', async () => {
+    const fetch = mockChat(() => makeResult())
+    const w = mount(ChatView, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+    expect(w.findAll('.example')[0]!.text()).toBe('강남역에서 점심 먹고 카공할 건데 추천해줘')
+    await w.findAll('.area-btn').find((b) => b.text() === '선정릉')!.trigger('click')
+    const texts = w.findAll('.example').map((b) => b.text())
+    expect(texts).toHaveLength(4)
+    expect(texts.every((t) => t.includes('선정릉역'))).toBe(true)
+    await w.findAll('.example')[3]!.trigger('click')
+    await flushPromises()
+    const body = JSON.parse(fetch.mock.calls.find(([u]) => u === '/api/chat/stream')![1]!.body as string)
+    expect(body).toMatchObject({ message: '선정릉역 도보 5분 이내에서 저녁 먹고 카공', area: '선정릉역' })
+  })
+})
