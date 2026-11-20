@@ -6,6 +6,8 @@
 """
 from __future__ import annotations
 
+import math
+
 import json
 import time as _time
 from dataclasses import dataclass, field
@@ -14,6 +16,8 @@ from typing import Any, Callable
 
 from app.agent.conditions import Conditions
 from app.agent.planning import CANDIDATE_POOL, DETAIL_BATCH
+from app.tools.nearby_cafes import WALK_DETOUR_FACTOR, WALK_SPEED_M_PER_MIN
+from app.tools.restaurant_candidates import SEARCH_RADIUS_M
 from app.tools.registry import ToolRegistry
 
 PERIOD_REFERENCE_TIME = {"아침": time(8, 0), "점심": time(12, 0), "저녁": time(18, 0)}
@@ -131,6 +135,17 @@ def run_weather(ex: ToolExecutor, data: ExecutionData, conditions: Conditions, a
         data.weather_error = r["error"]
 
 
+def walk_limit_m(conditions: Conditions) -> int | None:
+    """사용자가 말한 거리(m)·도보 시간(분) 제한을 역 중심 직선거리 상한으로 바꾼다.
+    도보 시간은 판정과 같은 추정식(직선거리×우회계수÷보행속도)의 역산."""
+    limits = []
+    if conditions.constraint.max_walk_m:
+        limits.append(conditions.constraint.max_walk_m)
+    if conditions.constraint.max_walk_minutes:
+        limits.append(math.floor(conditions.constraint.max_walk_minutes * WALK_SPEED_M_PER_MIN / WALK_DETOUR_FACTOR))
+    return min(limits) if limits else None
+
+
 def run_candidates(ex: ToolExecutor, data: ExecutionData, conditions: Conditions, area: str,
                    seed: int | None = None) -> None:
     # 가까운 순으로만 고르면 같은 지역은 늘 같은 식당이 나오므로, 반경 안에서 거리 구간별로 고르게 뽑는다.
@@ -142,6 +157,9 @@ def run_candidates(ex: ToolExecutor, data: ExecutionData, conditions: Conditions
         args = {"area": area, "max_results": CANDIDATE_POOL, "order": "varied"}
         if seed is not None:
             args["seed"] = seed
+    limit = walk_limit_m(conditions)
+    if limit is not None:  # 거리·도보 시간 제한이 있으면 그 안에서만 고른다 (밖의 후보는 어차피 제외됨)
+        args["radius_m"] = max(50, min(SEARCH_RADIUS_M, limit))
     if conditions.preference.food_type:
         args["food_type"] = conditions.preference.food_type
     if conditions.base.visit_date:

@@ -71,6 +71,8 @@ class RestaurantSearchInput(BaseModel):
         default="distance",
         description="distance: 가까운 순(기본). varied: 반경 안에서 거리 구간별로 고르게 섞어 고름(메뉴 정보 있는 곳 우선)")
     seed: int | None = Field(default=None, description="order=varied 의 섞기 기준값. 같으면 같은 결과, 생략하면 매번 다름")
+    radius_m: int | None = Field(default=None, ge=50, le=SEARCH_RADIUS_M,
+                                 description="역 중심 검색 반경(m, 50~700). 사용자가 거리·도보 시간 제한을 말했을 때만 지정, 생략하면 700")
 
 
 class RestaurantCandidate(BaseModel):
@@ -141,12 +143,14 @@ def _food_type_of(category: str | None) -> str | None:
 
 
 def _varied(pool: list[tuple[float, RestaurantRecord]], n: int, seed: int | None,
-            has_menu: set[str] | None) -> list[tuple[float, RestaurantRecord]]:
-    """거리 구간별로 섞어 고르게 n 곳을 뽑는다. 구간 안에서는 메뉴 정보가 있는 곳이 먼저."""
+            has_menu: set[str] | None, radius_m: int = SEARCH_RADIUS_M) -> list[tuple[float, RestaurantRecord]]:
+    """거리 구간별로 섞어 고르게 n 곳을 뽑는다. 구간 안에서는 메뉴 정보가 있는 곳이 먼저.
+    구간 경계는 반경에 비례한다 (반경 700m 기준 250·450m)."""
     rng = random.Random(seed)
-    bands: list[list[tuple[float, RestaurantRecord]]] = [[] for _ in range(len(VARIED_BANDS_M) + 1)]
+    edges = [b * radius_m / SEARCH_RADIUS_M for b in VARIED_BANDS_M]
+    bands: list[list[tuple[float, RestaurantRecord]]] = [[] for _ in range(len(edges) + 1)]
     for item in pool:
-        bands[sum(item[0] >= b for b in VARIED_BANDS_M)].append(item)
+        bands[sum(item[0] >= b for b in edges)].append(item)
     for band in bands:
         rng.shuffle(band)
         if has_menu is not None:
@@ -181,7 +185,7 @@ def _to_candidate(rec: RestaurantRecord, center: tuple[float, float], distance: 
     )
 
 
-def _filter_area(records, center, food_type):
+def _filter_area(records, center, food_type, radius_m: int = SEARCH_RADIUS_M):
     out = []
     for rec in records:
         if rec.latitude is None or rec.longitude is None:
@@ -191,7 +195,7 @@ def _filter_area(records, center, food_type):
         if food_type and _food_type_of(rec.category) != food_type:
             continue
         dist = haversine_m(center[0], center[1], rec.latitude, rec.longitude)
-        if dist <= SEARCH_RADIUS_M:
+        if dist <= radius_m:
             out.append((dist, rec))
     out.sort(key=lambda t: (t[0], t[1].name))
     return out
@@ -207,6 +211,7 @@ def create_tool(
     def run(params: RestaurantSearchInput) -> RestaurantSearchOutput:
         today = today_fn()
         center = STATIONS[params.area]
+        radius = params.radius_m or SEARCH_RADIUS_M
         notes: list[str] = []
         requested = params.reference_date
         applied = requested or today
@@ -240,9 +245,9 @@ def create_tool(
         primary: list[tuple[float, RestaurantRecord]] = []
         try:
             records, meta = redtable.load()
-            primary = _filter_area(records, center, params.food_type)
+            primary = _filter_area(records, center, params.food_type, radius)
             if params.order == "varied":
-                selected = _varied(primary, params.max_results, params.seed, has_menu)
+                selected = _varied(primary, params.max_results, params.seed, has_menu, radius)
                 notes.append(f"반경 안 후보 {len(primary)}곳에서 거리 구간별로 고르게 {len(selected)}곳을 골랐습니다"
                              + (" (메뉴 정보가 있는 곳 우선)." if has_menu is not None else "."))
             else:
@@ -265,7 +270,7 @@ def create_tool(
             try:
                 records, meta = gangnam_license.load()
                 open_records = [r for r in records if license_open_on(r, applied, today)]
-                supplement = _filter_area(open_records, center, params.food_type)
+                supplement = _filter_area(open_records, center, params.food_type, radius)
                 primary_keys = [(_normalize_name(r.name), r) for _, r in primary]
                 added = 0
                 for dist, rec in supplement:
@@ -302,12 +307,12 @@ def create_tool(
             raise ToolError(code, "음식점 후보를 조회하지 못했습니다: " + " / ".join(f.message or "" for f in failures))
         if not candidates:
             detail = f" (일부 출처 실패: {', '.join(f.provider for f in failures)})" if failures else ""
-            raise ToolError(ErrorCode.NO_RESULT, f"{params.area} 반경 {SEARCH_RADIUS_M}m 안에 조건에 맞는 음식점이 없습니다.{detail}")
+            raise ToolError(ErrorCode.NO_RESULT, f"{params.area} 반경 {radius}m 안에 조건에 맞는 음식점이 없습니다.{detail}")
 
         return RestaurantSearchOutput(
             area=params.area,
             center={"latitude": center[0], "longitude": center[1]},
-            radius_m=SEARCH_RADIUS_M,
+            radius_m=radius,
             food_type=params.food_type,
             order=params.order,
             pool_size=len(primary),

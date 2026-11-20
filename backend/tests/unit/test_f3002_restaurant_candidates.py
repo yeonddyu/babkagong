@@ -101,7 +101,7 @@ def test_registered_with_schema(make_settings):
     desc = {d["name"]: d for d in reg.describe()}[TOOL]
     assert desc["kind"] == "external_api"
     assert desc["input_schema"]["required"] == ["area"]
-    assert set(desc["input_schema"]["properties"]) == {"area", "food_type", "reference_date", "max_results", "order", "seed"}
+    assert set(desc["input_schema"]["properties"]) == {"area", "food_type", "reference_date", "max_results", "order", "seed", "radius_m"}
     assert {"candidates", "query_basis", "source_status"} <= set(desc["output_schema"]["properties"])
 
 
@@ -324,3 +324,14 @@ def test_varied_menu_lookup_failure_keeps_candidates(make_settings):
         TOOL, {"area": "강남역", "max_results": 5, "order": "varied", "seed": 3}))
     assert len(data["candidates"]) == 5
     assert all(c["menu_available"] is None for c in data["candidates"])  # 확인 못 하면 null, 만들지 않음
+
+
+def test_radius_limits_pool_and_bands_scale(make_settings):
+    """사용자가 거리 제한을 말하면 그 반경 안에서만 고른다 (700m 전체에서 섞었다가 대부분 제외되는 문제)."""
+    reg = make_registry(make_settings, _spread_session([]))
+    data = ok_data(reg.invoke(TOOL, {"area": "강남역", "max_results": 6, "order": "varied", "seed": 2, "radius_m": 200}))
+    assert data["radius_m"] == 200 and data["pool_size"] == 18  # 0~189m 의 18곳
+    dists = [c["distance_m"] for c in data["candidates"]]
+    assert len(dists) == 6 and max(dists) <= 200
+    assert sum(d < 250 * 200 / 700 for d in dists) == 2  # 구간 경계도 반경에 비례 (구간마다 2곳)
+    assert fail_code(reg.invoke(TOOL, {"area": "강남역", "radius_m": 30})) == "INVALID_INPUT"  # 50m 미만 거부

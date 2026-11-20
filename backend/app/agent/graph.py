@@ -209,6 +209,13 @@ class MainAgent:
                 data.candidates[data.detailed_count:] = kept
         if data.candidates:
             run_details(ex, data)
+            # 충족 후보가 1곳 이상이지만 목표 수보다 적으면, 남은 후보를 이어서 확인한다 (재계획이 아니라 같은 계획의 다음 묶음).
+            # 0곳이면 기존처럼 판단 → 재계획(next_batch) 흐름으로 사유를 남긴다.
+            while data.detailed_count < len(data.candidates):
+                found = len(evaluate(data, cond, today).satisfied)
+                if found == 0 or found >= CAFE_TARGETS:
+                    break
+                run_details(ex, data)
             self._search_cafes(ex, data, cond, today)
         return {}
 
