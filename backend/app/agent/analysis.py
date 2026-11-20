@@ -250,9 +250,13 @@ def _evidence_guard(result: AnalysisResult, message: str, rule: AnalysisResult,
                     stations: StationDirectory | None = None) -> AnalysisResult:
     """LLM 이 발화 근거 없이 채운 값은 규칙 분석값(없으면 None)으로 되돌린다."""
     c = result.conditions
-    # 지역은 역 목록에 있는 역이고 그 이름이 발화에 있을 때만 LLM 값을 쓴다 (아니면 규칙 분석값)
-    known = (stations or DEFAULT_STATIONS).get(c.preference.area) if c.preference.area else None
-    c.preference.area = known.name if (known and known.base in message) else rule.conditions.preference.area
+    # 지역: 발화에서 규칙으로 찾은 역이 있으면 그 역이 우선 (LLM 이 다른 역으로 바꾸지 못함).
+    # 규칙이 못 찾았을 때만, 서비스 역이고 그 이름이 발화에 있는 LLM 값을 쓴다. 서비스 밖 역을 말했으면 지역 없음.
+    if rule.conditions.preference.area or rule.unsupported_area:
+        c.preference.area = rule.conditions.preference.area
+    else:
+        known = (stations or DEFAULT_STATIONS).get(c.preference.area) if c.preference.area else None
+        c.preference.area = known.name if (known and known.base in message) else None
     if c.constraint.budget_max and rule.conditions.constraint.budget_max is None and not re.search(
             r"\d\s*(?:원|만|천)|만\s*원|[일이삼사오육칠팔구]\s*천\s*원", message):
         c.constraint.budget_max = None

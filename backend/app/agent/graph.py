@@ -149,6 +149,11 @@ class MainAgent:
         analysis = analyze(state["message"], self.today_fn(), self.llm, self.stations)
         conditions, changed, used_previous = resolve_conditions(analysis, state.get("previous"))
         hint = self.stations.get(state.get("area_hint")) if state.get("area_hint") else None  # 화면 선택값도 역 목록으로 확인
+        # 서비스 밖 역을 메시지에 명시했으면 이전 대화의 역이나 역 칩으로 바꿔 찾지 않고 되묻는다 (Tool 호출 0회)
+        if analysis.intent == "recommend" and analysis.unsupported_area and analysis.conditions.preference.area is None:
+            conditions = conditions.model_copy(deep=True)
+            conditions.preference.area = None
+            hint = None
         # 메시지에 역 이름이 없으면 화면에서 누른 역을 쓴다 (이전 대화의 역보다 우선: 버튼을 바꾼 뒤 '점심 먹고 카공' 만 보내도 그 역)
         if analysis.intent == "recommend" and hint and analysis.conditions.preference.area is None \
                 and conditions.preference.area != hint.name:

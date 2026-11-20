@@ -42,7 +42,7 @@ def build_plan(analysis: AnalysisResult, conditions: Conditions, today: date) ->
         return Plan(mode="skip", reason=f"의도가 '{analysis.intent}' 라 외부 Tool 호출이 필요 없음")
 
     if conditions.preference.area is None:
-        return Plan(mode="clarify", reason="지역(강남역/역삼역)이 없어 거리 계산의 시작점이 없으므로 Tool 호출 전에 되물음",
+        return Plan(mode="clarify", reason="서비스 역(역삼·강남·언주·신논현·선릉·선정릉)이 정해지지 않아 거리 계산의 시작점이 없으므로 Tool 호출 전에 되물음",
                     missing=["area"])
 
     steps: list[PlanStep] = []
