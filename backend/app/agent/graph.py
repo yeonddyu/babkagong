@@ -150,6 +150,12 @@ class MainAgent:
             conditions = conditions.model_copy(deep=True)
             conditions.preference.area = state["area_hint"]
             changed.append("preference.area")
+        # 후속 요청에서 지역만 바꾸면 이전 역의 출구 번호는 의미가 없으므로 버린다
+        prev_area = (((state.get("previous") or {}).get("conditions") or {}).get("preference") or {}).get("area")
+        if (used_previous and prev_area and conditions.preference.area != prev_area
+                and analysis.conditions.preference.exit_number is None and conditions.preference.exit_number is not None):
+            conditions = conditions.model_copy(deep=True)
+            conditions.preference.exit_number = None
         state["publisher"].emit("llm_decision", stage="analyze", decision=f"intent={analysis.intent}", reason=analysis.reason,
                                 decided_by=analysis.decided_by, used_previous=used_previous)
         more = analysis.more and used_previous

@@ -10,6 +10,7 @@ from app.clients.redtable import RedtableClient
 from app.clients.seoul_opendata import SeoulOpenDataClient
 from app.core.config import Settings, load_settings
 from app.datasets.cache import JsonCache
+from app.datasets.exits import StationExitDataset
 from app.datasets.restaurants import GangnamLicenseDataset, RedtableDetailDataset, RedtableRestaurantDataset
 from app.tools import nearby_cafes, restaurant_candidates, restaurant_details, weather
 from app.tools.registry import ToolRegistry
@@ -29,7 +30,8 @@ def build_default_registry(settings: Settings | None = None, *, session=None, to
 
     registry = ToolRegistry()
     date_kw = {"today_fn": today_fn} if today_fn else {}
-    registry.register(restaurant_candidates.create_tool(redtable_restaurants, gangnam_license, redtable_details, **date_kw))
+    registry.register(restaurant_candidates.create_tool(redtable_restaurants, gangnam_license, redtable_details,
+                                                        StationExitDataset(kakao_client, cache), **date_kw))
     registry.register(restaurant_details.create_tool(redtable_restaurants, redtable_details, gangnam_license))
     rest_food = GangnamLicenseDataset.rest_food(seoul_client, cache)
     registry.register(nearby_cafes.create_tool(kakao_client, rest_food, **date_kw))

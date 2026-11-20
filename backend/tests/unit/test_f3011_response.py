@@ -114,7 +114,7 @@ def test_summary_is_short_and_uses_confirmed_values(make_settings):
     lines = body["summary"].splitlines()
     top, cafe = body["recommendations"][0], body["recommendations"][0]["cafes"][0]
     assert lines[0] == f"조건에 맞는 코스 {len(body['recommendations'])}개를 찾았어요."
-    assert lines[1] == f"1순위 **{top['name']}** · 역에서 직선 {top['distance_m']}m"
+    assert lines[1] == f"1순위 **{top['name']}** · {top['distance_from']}에서 직선 {top['distance_m']}m"
     assert lines[2] == f"식사 후 카페 **{cafe['name']}** · 식당에서 직선 {cafe['distance_m']}m"
     assert lines[3].endswith("카드와 지도에서 확인해 주세요.")
     assert len(body["summary"]) < len(body["message"])

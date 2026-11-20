@@ -67,6 +67,7 @@
 | `max_results` | int 1~50 | X | 10 | 최대 결과 수 |
 | `order` | `distance` \| `varied` | X | `distance` | `distance`: 가까운 순. `varied`: 반경 안 후보를 거리 구간(0~250·250~450·450m~)별로 섞어 고르게 고름, 구간 안에서는 메뉴 정보가 있는 곳 먼저, 결과는 거리순 |
 | `seed` | int | X | 없음(매번 다름) | `varied` 의 섞기 기준값. 같으면 같은 결과 |
+| `exit_number` | int 1~20 | X | 없음 | 사용자가 'N번 출구'를 말했을 때 그 출구를 거리 기준점으로 사용. 카카오 로컬 키워드 검색의 '지하철출구' 장소(이름·분류 정확 일치 1곳)만 채택, 못 찾으면 역 중심 + notes 안내 |
 | `radius_m` | int 50~700 | X | 700 | 역 중심 검색 반경. 사용자가 거리·도보 시간 제한을 말했을 때만 지정 (`varied` 구간 경계도 반경에 비례) |
 
 ### 출력 `data`
@@ -76,6 +77,7 @@
 | `area`, `center{latitude,longitude}`, `radius_m`, `food_type` | 실제 적용된 검색 조건 |
 | `query_basis` | `requested_date`, `applied_date`, `default_applied`, `differs_from_request`, `notes[]` — 기본값 적용·요청과 실제 기준 차이를 명시 |
 | `candidates[]` | `name`, `source`, `source_id`, `road_address`, `jibun_address`, `latitude`, `longitude`, `coordinate_note`, `distance_m`, `category`(출처 원본), `food_type`(정규화), `business_status`(인허가 출처만), `detail_available`, `menu_available`(`varied` 일 때 메뉴 정보 보유 여부, 확인 못 하면 null) |
+| `origin` | 거리 기준점 `{kind: station\|exit, label, latitude, longitude, source, place_url}` |
 | `order`, `pool_size` | 적용한 정렬, 반경·조건을 통과한 1순위 출처 전체 후보 수 |
 | `source_status[]` | 출처별 `ok`, `returned`, `error_code`, `message`, `data_fetched_at`, `data_updated_at` |
 | `skipped_possible_duplicates` | 보완 출처에서 이름·위치(30m 이내)가 1순위 후보와 같아 목록에서 뺀 수 |
@@ -232,7 +234,7 @@
 ## 7. Tool 연결 (앞 Tool 출력 → 다음 Tool 입력)
 
 ```
-search_restaurant_candidates(area, food_type?, reference_date?, max_results?, order?, seed?, radius_m?)
+search_restaurant_candidates(area, food_type?, reference_date?, max_results?, order?, seed?, radius_m?, exit_number?)
    └─ candidates[i].source, candidates[i].source_id ──▶ get_restaurant_details(source, source_id)
    └─ candidates[i].latitude, candidates[i].longitude ─▶ search_nearby_cafes(latitude, longitude, radius_m?)
 ```

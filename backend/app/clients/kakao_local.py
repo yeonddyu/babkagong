@@ -1,4 +1,6 @@
-"""카카오 로컬 API Client - 카테고리로 장소 검색.
+"""카카오 로컬 API Client - 카테고리·키워드로 장소 검색.
+
+- 키워드: GET https://dapi.kakao.com/v2/local/search/keyword.json (query, x, y, radius, size) — 역 출구 좌표 조회에 사용
 
 - GET https://dapi.kakao.com/v2/local/search/category.json
 - 헤더: Authorization: KakaoAK {REST_API_KEY}
@@ -18,6 +20,7 @@ from app.core.errors import ErrorCode, ExternalAPIError
 
 PROVIDER = "카카오 로컬 API"
 CATEGORY_URL = "https://dapi.kakao.com/v2/local/search/category.json"
+KEYWORD_URL = "https://dapi.kakao.com/v2/local/search/keyword.json"
 CATEGORY_CAFE = "CE7"
 MAX_PAGE_SIZE = 15
 MAX_PAGE = 45
@@ -38,21 +41,28 @@ class KakaoLocalClient:
         self._timeout = timeout
         self._session = session or requests.Session()
 
+    def search_keyword(self, query: str, *, lat: float, lng: float, radius_m: int, size: int = MAX_PAGE_SIZE) -> KakaoPage:
+        """키워드로 장소 검색 (첫 페이지, 기준 좌표 반경 안)."""
+        return self._get(KEYWORD_URL, {"query": query, "x": f"{lng:.7f}", "y": f"{lat:.7f}", "radius": radius_m, "size": size})
+
     def search_category(
         self, category: str, *, lat: float, lng: float, radius_m: int, page: int = 1, size: int = MAX_PAGE_SIZE,
         sort: str = "distance",
     ) -> KakaoPage:
+        return self._get(CATEGORY_URL, {
+            "category_group_code": category, "x": f"{lng:.7f}", "y": f"{lat:.7f}",
+            "radius": radius_m, "page": page, "size": size, "sort": sort,
+        })
+
+    def _get(self, url: str, params: dict[str, Any]) -> KakaoPage:
         if not self._api_key:
             raise ExternalAPIError(ErrorCode.MISSING_API_KEY, f"{PROVIDER} 키(KAKAO_REST_API_KEY)가 설정되지 않았습니다.", provider=PROVIDER)
         status, text = http_get(
             self._session,
-            CATEGORY_URL,
+            url,
             provider=PROVIDER,
             timeout=self._timeout,
-            params={
-                "category_group_code": category, "x": f"{lng:.7f}", "y": f"{lat:.7f}",
-                "radius": radius_m, "page": page, "size": size, "sort": sort,
-            },
+            params=params,
             headers={"Authorization": f"KakaoAK {self._api_key}"},
         )
         raise_for_http_status(status, PROVIDER)

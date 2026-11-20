@@ -216,7 +216,7 @@ def evaluate_restaurant(
         if dist is None:
             checks.append(Check("거리", "unknown", "좌표 미확인", "", True))
         else:
-            checks.append(Check("거리", "pass" if dist <= limit else "fail", f"역에서 직선 {dist}m (한도 {limit}m)", "후보 Tool 직선거리", True))
+            checks.append(Check("거리", "pass" if dist <= limit else "fail", f"{cand.get('distance_from') or '역'}에서 직선 {dist}m (한도 {limit}m)", "후보 Tool 직선거리", True))
     if conditions.constraint.max_walk_minutes is not None:
         limit = conditions.constraint.max_walk_minutes
         mins = estimate_walk_minutes(dist)
@@ -324,9 +324,11 @@ def evaluate(data: ExecutionData, conditions: Conditions, today: date,
     if ref:
         criteria.append(f"영업시간: {visit.isoformat()} {ref.strftime('%H:%M')} 영업 여부 ({basis}), 미확인은 경고 후 순위 하락")
     if c.constraint.max_walk_m:
-        criteria.append(f"거리: 역에서 직선 {c.constraint.max_walk_m}m 이내")
+        criteria.append(f"거리: {'%d번 출구' % c.preference.exit_number if c.preference.exit_number else '역'}에서 직선 {c.constraint.max_walk_m}m 이내")
     if c.constraint.max_walk_minutes:
         criteria.append(f"도보: 약 {c.constraint.max_walk_minutes}분 이내 (직선거리 기반 추정)")
+    if c.preference.exit_number:
+        criteria.append(f"거리 기준점: {c.preference.exit_number}번 출구 (카카오 로컬 출구 좌표, 찾지 못하면 역 중심)")
     if c.preference.food_type:
         criteria.append(f"음식 종류: {c.preference.food_type}")
     if c.preference.exclude_food_types:

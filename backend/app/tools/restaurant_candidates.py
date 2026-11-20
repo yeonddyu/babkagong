@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field
 from app.core.errors import ErrorCode, ExternalAPIError
 from app.core.geo import STATIONS, haversine_m
 from app.datasets.cache import now_kst
+from app.datasets.exits import StationExitDataset
 from app.datasets.restaurants import (
     SOURCE_GANGNAM_LICENSE,
     SOURCE_REDTABLE,
@@ -71,6 +72,8 @@ class RestaurantSearchInput(BaseModel):
         default="distance",
         description="distance: 가까운 순(기본). varied: 반경 안에서 거리 구간별로 고르게 섞어 고름(메뉴 정보 있는 곳 우선)")
     seed: int | None = Field(default=None, description="order=varied 의 섞기 기준값. 같으면 같은 결과, 생략하면 매번 다름")
+    exit_number: int | None = Field(default=None, ge=1, le=20,
+                                    description="사용자가 'N번 출구' 를 말했을 때 그 출구를 거리 기준점으로 사용. 찾지 못하면 역 중심 기준")
     radius_m: int | None = Field(default=None, ge=50, le=SEARCH_RADIUS_M,
                                  description="역 중심 검색 반경(m, 50~700). 사용자가 거리·도보 시간 제한을 말했을 때만 지정, 생략하면 700")
 
@@ -84,7 +87,7 @@ class RestaurantCandidate(BaseModel):
     latitude: float | None
     longitude: float | None
     coordinate_note: str | None
-    distance_m: int | None = Field(description="검색 지역 중심으로부터 직선거리(m)")
+    distance_m: int | None = Field(description="거리 기준점(origin: 역 중심 또는 지정한 출구)으로부터 직선거리(m)")
     category: str | None = Field(description="출처 원본 분류값")
     food_type: str | None = Field(description="정규화 음식 종류")
     business_status: str | None = Field(default=None, description="인허가 데이터의 현재 영업상태 (해당 출처만)")
@@ -111,10 +114,20 @@ class SourceStatus(BaseModel):
     data_updated_at: str | None = None
 
 
+class Origin(BaseModel):
+    kind: Literal["station", "exit"]
+    label: str = Field(description="예: '강남역', '강남역 11번 출구'")
+    latitude: float
+    longitude: float
+    source: str = Field(description="좌표 출처")
+    place_url: str | None = None
+
+
 class RestaurantSearchOutput(BaseModel):
     area: str
     center: dict[str, float]
     radius_m: int
+    origin: Origin | None = Field(default=None, description="거리 기준점")
     food_type: str | None
     order: str = "distance"
     pool_size: int = Field(default=0, description="반경·조건을 통과한 1순위 출처 전체 후보 수 (이 중에서 max_results 만큼 고름)")
@@ -205,6 +218,7 @@ def create_tool(
     redtable: RedtableRestaurantDataset,
     gangnam_license: GangnamLicenseDataset,
     redtable_details: RedtableDetailDataset | None = None,
+    exits: StationExitDataset | None = None,
     *,
     today_fn: Callable[[], date] = lambda: now_kst().date(),
 ) -> ToolSpec:
@@ -212,6 +226,17 @@ def create_tool(
         today = today_fn()
         center = STATIONS[params.area]
         radius = params.radius_m or SEARCH_RADIUS_M
+        origin = Origin(kind="station", label=params.area, latitude=center[0], longitude=center[1], source="서비스 기준 역 좌표")
+        exit_note: str | None = None
+        if params.exit_number is not None:
+            hit, reason = exits.find(params.area, params.exit_number) if exits else (None, "출구 위치 데이터를 사용할 수 없습니다")
+            if hit:
+                center = (hit["latitude"], hit["longitude"])
+                origin = Origin(kind="exit", label=f"{params.area} {params.exit_number}번 출구", latitude=center[0],
+                                longitude=center[1], source=f"카카오 로컬 '{hit['name']}'", place_url=hit.get("place_url"))
+                exit_note = f"거리는 {origin.label}(카카오 로컬 '{hit['name']}' 좌표) 기준입니다."
+            else:
+                exit_note = f"{reason} — 역 중심 기준으로 찾았습니다."
         notes: list[str] = []
         requested = params.reference_date
         applied = requested or today
@@ -225,6 +250,8 @@ def create_tool(
                 f"요청 기준일 {requested.isoformat()}은 미래라서 인허가 데이터로 영업 여부를 알 수 없으므로 "
                 f"오늘({today.isoformat()}) 기준 영업상태로 조회했습니다."
             )
+        if exit_note:
+            notes.append(exit_note)
         notes.append("서울관광재단 식당기본정보는 기준일 조회를 지원하지 않아 데이터 수집 시점 기준입니다(폐업 여부 미포함).")
         if params.area == "강남역":
             notes.append("강남구 인허가 데이터에는 강남역 서측(서초구) 업소가 포함되지 않습니다.")
@@ -307,12 +334,13 @@ def create_tool(
             raise ToolError(code, "음식점 후보를 조회하지 못했습니다: " + " / ".join(f.message or "" for f in failures))
         if not candidates:
             detail = f" (일부 출처 실패: {', '.join(f.provider for f in failures)})" if failures else ""
-            raise ToolError(ErrorCode.NO_RESULT, f"{params.area} 반경 {radius}m 안에 조건에 맞는 음식점이 없습니다.{detail}")
+            raise ToolError(ErrorCode.NO_RESULT, f"{origin.label} 반경 {radius}m 안에 조건에 맞는 음식점이 없습니다.{detail}")
 
         return RestaurantSearchOutput(
             area=params.area,
             center={"latitude": center[0], "longitude": center[1]},
             radius_m=radius,
+            origin=origin,
             food_type=params.food_type,
             order=params.order,
             pool_size=len(primary),

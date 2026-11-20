@@ -59,7 +59,8 @@ def _restaurant_view(rec: dict[str, Any]) -> dict[str, Any]:
         "latitude": r.get("latitude"), "longitude": r.get("longitude"),
         "category": r.get("category"), "food_type": r.get("food_type"),
         "area": r.get("searched_area"),
-        "distance_m": r.get("distance_m"), "distance_basis": "역 중심 직선거리",
+        "distance_m": r.get("distance_m"), "distance_from": r.get("distance_from") or r.get("searched_area"),
+        "distance_basis": f"{r.get('distance_from') or '역 중심'} 기준 직선거리",
         "estimated_walk_minutes": walk,
         "matched_menus": [{"name": m["name"], "price_krw": m.get("price_krw")} for m in rec["matched_menus"]],
         "sample_menus": rec.get("sample_menus", []),
@@ -93,6 +94,16 @@ def _notices(ex: ToolExecutor | None) -> list[str]:
         seen.add(key)
         notices.append(f"{TOOL_LABEL.get(call.tool, call.tool)}: {CODE_NOTICE.get(call.error_code, '확인하지 못했습니다')}")
     return notices
+
+
+def _exit_notice(conditions: Conditions, data: ExecutionData | None) -> list[str]:
+    """사용자가 말한 출구를 찾지 못해 역 중심으로 계산했다면 알린다."""
+    n = conditions.preference.exit_number
+    meta = (data.candidate_meta or {}) if data else {}
+    if not n or (meta.get("origin") or {}).get("kind") != "station":
+        return []
+    reason = next((x for x in ((meta.get("query_basis") or {}).get("notes") or []) if "출구" in x), None)
+    return [reason or f"{n}번 출구 위치를 확인하지 못해 역 중심 기준으로 거리를 계산했어요."]
 
 
 def _weather_mismatch(analysis: AnalysisResult, data: ExecutionData | None) -> list[str]:
@@ -160,7 +171,7 @@ def _template_message(intent: str, body: dict[str, Any]) -> str:
         lines.append(f"조건에 맞는 코스 {len(recs)}개를 찾았어요.")
         for i, r in enumerate(recs, 1):
             menu = ", ".join(f"{m['name']} {_won(m['price_krw'])}" for m in r["matched_menus"][:2])
-            line = f"{i}. {r['name']} — 역에서 직선 {r['distance_m']}m(도보 약 {r['estimated_walk_minutes']}분 추정)"
+            line = f"{i}. {r['name']} — {r.get('distance_from') or '역'}에서 직선 {r['distance_m']}m(도보 약 {r['estimated_walk_minutes']}분 추정)"
             if menu:
                 line += f", 메뉴 예: {menu}"
             if r["business_hours"]:
@@ -200,7 +211,7 @@ def _summary(intent: str, body: dict[str, Any]) -> str | None:
     lines = [f"{lead}조건에 맞는 코스 {len(recs)}개를 찾았어요."]
     meal = f"1순위 **{top['name']}**"
     if top.get("distance_m") is not None:
-        meal += f" · 역에서 직선 {top['distance_m']}m"
+        meal += f" · {top.get('distance_from') or '역'}에서 직선 {top['distance_m']}m"
     lines.append(meal)
     if top.get("cafes"):
         c = top["cafes"][0]
@@ -292,9 +303,10 @@ def build_response(
         "replans": replans,
         "stop_reason": stop_reason,
         "suggestions": _suggestions(conditions) if (ev is not None and not recommendations) else [],
-        "notices": _notices(ex) + _weather_mismatch(analysis, data),
+        "notices": _notices(ex) + _weather_mismatch(analysis, data) + _exit_notice(conditions, data),
         "disclaimer": HEALTH_DISCLAIMER if analysis.mentions_health else None,
         "query_basis": (data.candidate_meta or {}).get("query_basis") if data else None,
+        "origin": (data.candidate_meta or {}).get("origin") if data else None,
         "saved_plan": (save_result or {}).get("plan"),
         "plan_conflicts": (save_result or {}).get("conflicts", []),
         "save_result": save_result,

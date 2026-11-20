@@ -28,6 +28,7 @@ class PreferenceConditions(BaseModel):
     food_type: FoodType | None = None
     exclude_food_types: list[FoodType] = Field(default_factory=list)
     prefer_short_walk: bool | None = Field(default=None, description="많이 걷기 싫음 / 가까운 곳 선호")
+    exit_number: int | None = Field(default=None, ge=1, le=20, description="거리 기준으로 삼을 역 출구 번호 ('11번 출구 근처')")
 
 
 class ConstraintConditions(BaseModel):

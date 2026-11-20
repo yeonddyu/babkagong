@@ -41,6 +41,7 @@ class ChatResponse(BaseModel):
     decided_by: Literal["llm", "rule"]
     message: str = Field(description="사용자에게 보여줄 응답 문장")
     message_by: Literal["template", "llm"]
+    origin: dict[str, Any] | None = Field(default=None, description="거리 기준점 (역 중심 또는 사용자가 말한 출구)")
     summary: str | None = Field(default=None, description="대화창용 짧은 요약 (코드 생성, 추천이 있을 때만)")
     conditions: dict[str, Any] = Field(description="기준·선호·제약 조건, missing, changed")
     plan: dict[str, Any] | None = Field(description="Tool 호출 계획")

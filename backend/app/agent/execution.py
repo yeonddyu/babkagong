@@ -157,6 +157,9 @@ def run_candidates(ex: ToolExecutor, data: ExecutionData, conditions: Conditions
         args = {"area": area, "max_results": CANDIDATE_POOL, "order": "varied"}
         if seed is not None:
             args["seed"] = seed
+    # 출구 번호는 사용자가 말한 역에서만 의미가 있다 (인접 지역 재계획에서는 역 중심 기준)
+    if conditions.preference.exit_number and area == conditions.preference.area:
+        args["exit_number"] = conditions.preference.exit_number
     limit = walk_limit_m(conditions)
     if limit is not None:  # 거리·도보 시간 제한이 있으면 그 안에서만 고른다 (밖의 후보는 어차피 제외됨)
         args["radius_m"] = max(50, min(SEARCH_RADIUS_M, limit))
@@ -171,11 +174,12 @@ def run_candidates(ex: ToolExecutor, data: ExecutionData, conditions: Conditions
         return
     excluded = set(conditions.preference.exclude_food_types)
     seen = {cand_key(c) for c in data.candidates}
+    origin = r["data"].get("origin") or {}
     for c in r["data"]["candidates"]:
         if cand_key(c) not in seen and c.get("food_type") not in excluded:
-            c = dict(c, searched_area=area)
+            c = dict(c, searched_area=area, distance_from=origin.get("label") or area)
             data.candidates.append(c)
-    data.candidate_meta = {k: r["data"][k] for k in ("query_basis", "source_status", "radius_m", "area")}
+    data.candidate_meta = {k: r["data"].get(k) for k in ("query_basis", "source_status", "radius_m", "area", "origin")}
 
 
 def run_details(ex: ToolExecutor, data: ExecutionData, batch: int = DETAIL_BATCH) -> int:

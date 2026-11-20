@@ -131,6 +131,15 @@ def parse_budget(text: str) -> int | None:
     return None
 
 
+EXIT_PATTERN = re.compile(r"(\d{1,2})\s*번\s*출구")
+
+
+def parse_exit(text: str) -> int | None:
+    """'11번 출구', '3번출구' → 출구 번호. 한 문장에 여러 출구면 판단하지 않는다 (None)."""
+    nums = {int(n) for n in EXIT_PATTERN.findall(text)}
+    return nums.pop() if len(nums) == 1 and 1 <= next(iter(nums)) <= 20 else None
+
+
 def parse_walk(text: str) -> tuple[int | None, int | None]:
     m = re.search(r"(\d{2,5})\s*(?:m|미터)\s*(?:이내|이하|안|까지)?", text)
     meters = int(m.group(1)) if m else None
@@ -205,6 +214,7 @@ def rule_analyze(message: str, today: date) -> AnalysisResult:
         c.preference.prefer_short_walk = True
     c.constraint.budget_max = parse_budget(text)
     c.constraint.max_walk_m, c.constraint.max_walk_minutes = parse_walk(text)
+    c.preference.exit_number = parse_exit(text)
 
     if intent in ("smalltalk", "help", "out_of_scope"):
         c = Conditions()  # Tool 이 필요 없는 요청은 조건을 추출하지 않는다
@@ -252,6 +262,8 @@ def _evidence_guard(result: AnalysisResult, message: str, rule: AnalysisResult) 
         c.base.cafe_time = None
     if c.constraint.end_by and rule.conditions.constraint.end_by is None and not re.search(r"까지|전에|안에|끝나", message):
         c.constraint.end_by = None
+    # 출구 번호는 발화의 'N번 출구' 표현으로만 정한다 (LLM 값은 쓰지 않음)
+    c.preference.exit_number = rule.conditions.preference.exit_number
     if c.constraint.max_walk_minutes and not re.search(r"\d", message):
         c.constraint.max_walk_minutes = None
     # '가까운 곳/많이 걷기 싫다' 표현이 없는데 도보 선호를 넣은 경우 제거 (실제 GMS 응답에서 확인된 문제)

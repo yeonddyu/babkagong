@@ -101,7 +101,7 @@ def test_registered_with_schema(make_settings):
     desc = {d["name"]: d for d in reg.describe()}[TOOL]
     assert desc["kind"] == "external_api"
     assert desc["input_schema"]["required"] == ["area"]
-    assert set(desc["input_schema"]["properties"]) == {"area", "food_type", "reference_date", "max_results", "order", "seed", "radius_m"}
+    assert set(desc["input_schema"]["properties"]) == {"area", "food_type", "reference_date", "max_results", "order", "seed", "radius_m", "exit_number"}
     assert {"candidates", "query_basis", "source_status"} <= set(desc["output_schema"]["properties"])
 
 
