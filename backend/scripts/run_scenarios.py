@@ -1,4 +1,4 @@
-"""대표 시나리오 검증 (요구사항정의서 4.7) — 실제 외부 API 로 실행한다.
+"""대표 시나리오 검증 (요구사항정의서 4.7) — 실제 캐시와 외부 API 를 사용한다.
 
 각 시나리오의 최종 응답, 실행 로그(단계·Tool 호출·재계획), 기대 동작과 실제 동작의 차이를 기록한다.
 결과: docs/scenario_results.md, 실행 로그 샘플: docs/samples/*.json
@@ -27,15 +27,16 @@ from app.tools.catalog import build_default_registry
 DOCS = REPO_ROOT / "docs"
 
 
-def make_agent(settings):
+def make_agent(settings, *, use_llm: bool = True):
     engine = make_engine("sqlite://")
     init_db(engine)
     sf = make_session_factory(engine)
     logs, plans = LogRepository(sf), PlanRepository(sf)
     bus = EventBus()
     LoggingAgent(logs).attach(bus)
-    agent = MainAgent(build_default_registry(settings), llm=create_llm(settings), max_replans=settings.max_replans,
-                      memory=SqliteMemoryStore(sf), bus=bus, plan_repo=plans)
+    agent = MainAgent(build_default_registry(settings), llm=create_llm(settings) if use_llm else None,
+                      max_replans=settings.max_replans, memory=SqliteMemoryStore(sf), bus=bus, plan_repo=plans,
+                      seed_fn=lambda: 0)
     return agent, logs, plans
 
 
@@ -69,12 +70,12 @@ def scenarios(settings) -> list[dict[str, Any]]:
          "expected": "재계획 없이 예산 이하 메뉴가 확인된 식당 + 주변 카페 추천",
          "check": lambda s, r: (bool(s["recommendations"]) and not s["replans"], "추천 있음·재계획 없음")},
         {"id": "S2", "title": "재계획이 필요한 요청", "session": "S2",
-         # 1차 실행에서 '강남역 일식 1만 2천원'은 실제 데이터상 첫 묶음에서 충족되어 재계획이 일어나지 않았다(시나리오 선택 오류).
-         # 실제로 재계획이 일어나는 요청으로 교체했다.
-         "message": "역삼역에서 일식 1만 5천원 이하로 12시 점심",
-         "expected": "첫 상세조회 묶음에서 충족 0건 → 다음 묶음(또는 인접 역) 재계획 후 추천, 이미 호출한 Tool 재호출 없음",
-         "check": lambda s, r: (bool(s["replans"]) and len({(c["tool"], json.dumps(c["args"], sort_keys=True)) for c in r["tool_calls"] if not c["reused"]})
-                                == s["fresh_tool_calls"], "재계획 발생·중복 호출 없음")},
+         "use_llm": False,
+         "message": "역삼역에서 일식 7,000원 이하로 12시 점심",
+         "expected": "첫 상세조회 묶음에서 충족 0건 → 다음 묶음 재계획 후 추천, 이미 호출한 Tool 재호출 없음",
+         "check": lambda s, r: (s["replans"][:1] == ["1:next_batch"] and bool(s["recommendations"])
+                                and len({(c["tool"], json.dumps(c["args"], sort_keys=True)) for c in r["tool_calls"] if not c["reused"]})
+                                == s["fresh_tool_calls"], "다음 묶음 재계획 후 추천·중복 호출 없음")},
         {"id": "S3", "title": "재계획 상한 도달", "session": "S3",
          "message": "역삼역 1천원 이하 점심",
          "expected": "재계획 3회 후 중단, 사유와 조건 조정 제안",
@@ -111,14 +112,16 @@ def scenarios(settings) -> list[dict[str, Any]]:
     ]
 
 
-def main() -> None:
+def main() -> int:
     settings = load_settings()
     agent, logs, _ = make_agent(settings)
     alt_agents: dict[int, Any] = {}
     rows = []
     for sc in scenarios(settings):
         runner = agent
-        if "settings" in sc:
+        if not sc.get("use_llm", True):
+            runner = make_agent(settings, use_llm=False)[0]
+        elif "settings" in sc:
             key = id(sc["settings"])
             alt_agents.setdefault(key, make_agent(sc["settings"])[0])
             runner = alt_agents[key]
@@ -148,11 +151,11 @@ def main() -> None:
     lines = [
         "# 대표 시나리오 검증 결과 (요구사항정의서 4.7)", "",
         f"- 실행 일시: {now_kst().strftime('%Y-%m-%d %H:%M')} KST, 명령: `cd backend && ../.venv/bin/python -m scripts.run_scenarios`",
-        "- 외부 API: **실제 호출** (서울관광재단·서울 열린데이터광장·기상청·카카오 로컬)",
-        f"- LLM: {'사용 (' + str(st.model) + ')' if st.available else '미사용 — OPENAI_API_KEY 없음, 요청 분석·응답 문장은 규칙/템플릿'}",
+        "- 데이터: 유효한 로컬 캐시를 재사용하고 필요한 외부 API를 호출. Tool별 실제 실행은 아래 기록 참조.",
+        f"- 요청 분석: {'LLM 사용 (' + str(st.model) + ')' if st.available else '규칙 사용 (LLM 미설정)'}. 최종 문장은 구조화된 결과로 생성.",
         "- 실행 로그 샘플: `docs/samples/run_log_S1_full.json`(대표 요청 1건 전체), `docs/samples/run_log_S3_replan_limit.json`(재계획 사례)",
-        "- 변경 이력: 1차 실행에서 S2 요청('강남역 일식 1만 2천원 이하로 12시 점심')은 실제 데이터상 첫 상세조회 묶음에서 충족 후보가 나와 "
-        "재계획이 발생하지 않음(FAIL, 시나리오 선택 오류 — 코드 결함 아님). 재계획이 실제로 발생하는 요청으로 교체 후 재실행.", "",
+        "- 후보를 고르는 seed는 0으로 고정. S2는 규칙 분석을 사용해 현재 캐시에서 재계획 후 추천을 검증한다. "
+        "캐시가 바뀌면 결과가 달라질 수 있으며, 고정 데이터 검증은 `test_f3009_replan.py`에서 수행한다.", "",
         "| ID | 시나리오 | 결과 | 시간(초) | Tool 호출(신규) | 재계획 | 추천 |", "|---|---|---|---|---|---|---|",
     ]
     for r in rows:
@@ -171,8 +174,10 @@ def main() -> None:
                   "- 최종 응답:", "", "```", r["final"], "```", "",
                   f"- 기대와 차이: {'없음' if r['pass'] else '판정 기준 미충족 — 원인 분석 필요'}", ""]
     (DOCS / "scenario_results.md").write_text("\n".join(lines), encoding="utf-8")
-    print("PASS", sum(r["pass"] for r in rows), "/", len(rows))
+    passed = sum(r["pass"] for r in rows)
+    print("PASS", passed, "/", len(rows))
+    return int(passed != len(rows))
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

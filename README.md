@@ -52,7 +52,7 @@ cd backend && ../.venv/bin/python -m scripts.build_cache
 ```bash
 cd backend && ../.venv/bin/python -m pytest                      # Mock 단위 테스트 (259)
 cd backend && ../.venv/bin/python -m pytest -m integration -rs   # 실제 외부 API (키가 없으면 BLOCKED skip)
-cd backend && ../.venv/bin/python -m scripts.run_scenarios       # 대표 시나리오 10개 (실제 API) → docs/scenario_results.md
+cd backend && ../.venv/bin/python -m scripts.run_scenarios       # 대표 시나리오 10개 (캐시·실제 API) → docs/scenario_results.md
 cd backend && ../.venv/bin/python -m scripts.verify_apis         # API 연결 검증 (키 마스킹)
 .venv/bin/python backend/scripts/check_secrets.py                # 저장소에 키 값이 없는지 점검
 cd frontend && npm test && npm run build                          # vitest 78, 빌드
@@ -74,5 +74,5 @@ cd frontend && npm test && npm run build                          # vitest 78, �
 | [docs/implementation_report.md](docs/implementation_report.md) | 구현 결과 보고 |
 
 ## 현재 제한
-- LLM: SSAFY GMS(gpt-4o-mini)로 요청 분석·응답 문장 생성. 키가 없거나 실패하면 규칙/템플릿으로 동작
+- LLM: SSAFY GMS(gpt-4o-mini)로 요청을 분석하고, 키가 없거나 분석이 실패하면 규칙을 적용합니다. 응답 문장은 구조화된 결과로 생성합니다.
 - 출처 표기: 날씨 정보 출처 기상청(공공누리 제1유형)

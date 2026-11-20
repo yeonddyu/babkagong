@@ -1,12 +1,12 @@
 {
   "message_by_scenario": "run_log_S3_replan_limit.json",
-  "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-  "final_message": "🌤 11-19 12:00 예보: 4.0°C, 강수확률 30% (없음)\n조건을 모두 만족하는 식당을 찾지 못했어요.\n사유: 재계획 상한(3회)에 도달\n제외한 예: 누들톡(역삼역점)(예산 판단 불가: 가격 미확인 — 1,000원 이하 메뉴가 있는지 매장에서 확인 필요); 다미분식(예산 판단 불가: 가격 미확인 — 1,000원 이하 메뉴가 있는지 매장에서 확인 필요); 만권화밥(역삼점)(예산 판단 불가: 가격 미확인 — 1,000원 이하 메뉴가 있는지 매장에서 확인 필요)\n이렇게 바꿔 보시겠어요? 예산을 6,000원 정도로 올려 보기 / 가격·영업시간이 확인된 식당이 적어서, 조건을 줄이면 더 많은 후보를 판단할 수 있어요",
+  "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+  "final_message": "🌤 11-20 12:00 예보: 2.0°C, 강수확률 0% (없음)\n조건을 모두 만족하는 식당을 찾지 못했어요.\n사유: 재계획 상한(3회)에 도달\n제외한 예: 명가교동짬뽕(역삼역점)(예산 조건 불충족: 최저가 5,500원 > 예산 1,000원); 파스토보이(역삼점)(예산 판단 불가: 가격 미확인 — 1,000원 이하 메뉴가 있는지 매장에서 확인 필요); 고향마을(예산 조건 불충족: 최저가 7,000원 > 예산 1,000원)\n이렇게 바꿔 보시겠어요? 예산을 6,000원 정도로 올려 보기 / 가격·영업시간이 확인된 식당이 적어서, 조건을 줄이면 더 많은 후보를 판단할 수 있어요",
   "stored_log": [
     {
-      "id": 87,
+      "id": 49,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
       "seq": 1,
       "type": "run_start",
       "stage": null,
@@ -15,46 +15,46 @@
         "area_hint": null,
         "has_previous": false
       },
-      "timestamp": "2026-11-19T15:27:33.847+09:00"
+      "timestamp": "2026-11-20T15:52:13.779+09:00"
     },
     {
-      "id": 88,
+      "id": 50,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
       "seq": 2,
       "type": "stage_start",
       "stage": "analyze",
       "payload": {},
-      "timestamp": "2026-11-19T15:27:33.849+09:00"
+      "timestamp": "2026-11-20T15:52:13.780+09:00"
     },
     {
-      "id": 89,
+      "id": 51,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
       "seq": 3,
       "type": "llm_decision",
       "stage": "analyze",
       "payload": {
         "decision": "intent=recommend",
-        "reason": "사용자가 역삼역에서 1천원 이하의 점심을 요청했기 때문에 식사 추천으로 판단했다.",
+        "reason": "사용자가 역삼역에서 1천원 이하의 점심을 원한다고 명시했기 때문입니다.",
         "decided_by": "llm",
         "used_previous": false
       },
-      "timestamp": "2026-11-19T15:27:36.927+09:00"
+      "timestamp": "2026-11-20T15:52:16.101+09:00"
     },
     {
-      "id": 90,
+      "id": 52,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
       "seq": 4,
       "type": "stage_end",
       "stage": "analyze",
       "payload": {
         "intent": "recommend",
-        "reason": "사용자가 역삼역에서 1천원 이하의 점심을 요청했기 때문에 식사 추천으로 판단했다.",
+        "reason": "사용자가 역삼역에서 1천원 이하의 점심을 원한다고 명시했기 때문입니다.",
         "decided_by": "llm",
         "conditions": {
-          "base.visit_date": "2026-11-19",
+          "base.visit_date": "2026-11-20",
           "base.meal_period": "점심",
           "preference.area": "역삼역",
           "constraint.budget_max": 1000
@@ -66,22 +66,22 @@
           "constraint.budget_max"
         ]
       },
-      "timestamp": "2026-11-19T15:27:36.929+09:00"
+      "timestamp": "2026-11-20T15:52:16.102+09:00"
     },
     {
-      "id": 91,
+      "id": 53,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
       "seq": 5,
       "type": "stage_start",
       "stage": "plan",
       "payload": {},
-      "timestamp": "2026-11-19T15:27:36.931+09:00"
+      "timestamp": "2026-11-20T15:52:16.103+09:00"
     },
     {
-      "id": 92,
+      "id": 54,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
       "seq": 6,
       "type": "plan_created",
       "stage": "plan",
@@ -98,31 +98,31 @@
           {
             "order": 2,
             "tool": "search_restaurant_candidates",
-            "purpose": "지역·음식 종류로 음식점 후보 확보",
+            "purpose": "지역·음식 종류로 반경 안 음식점 후보 30곳을 거리 구간별로 고르게 확보 (메뉴 정보 있는 곳 우선)",
             "inputs_from": "요청 분석: area, food_type, visit_date"
           },
           {
             "order": 3,
             "tool": "get_restaurant_details",
-            "purpose": "가까운 후보 6곳의 메뉴·가격·영업시간 확인",
+            "purpose": "후보 중 가까운 10곳의 메뉴·가격·영업시간 확인",
             "inputs_from": "search_restaurant_candidates: candidates[].source, source_id"
           },
           {
             "order": 4,
             "tool": "search_nearby_cafes",
-            "purpose": "조건을 충족한 식당 상위 3곳 주변 카페 검색",
+            "purpose": "조건을 충족한 식당 상위 5곳 주변 카페 검색",
             "inputs_from": "get_restaurant_details/후보: latitude, longitude (+ 날씨·도보 선호로 반경 결정)"
           }
         ],
         "excluded_tools": [],
         "missing": []
       },
-      "timestamp": "2026-11-19T15:27:36.932+09:00"
+      "timestamp": "2026-11-20T15:52:16.105+09:00"
     },
     {
-      "id": 93,
+      "id": 55,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
       "seq": 7,
       "type": "stage_end",
       "stage": "plan",
@@ -136,22 +136,22 @@
         ],
         "reason": "추천 요청이고 지역이 있어 날씨→후보→상세→카페 순으로 계획"
       },
-      "timestamp": "2026-11-19T15:27:36.932+09:00"
+      "timestamp": "2026-11-20T15:52:16.106+09:00"
     },
     {
-      "id": 94,
+      "id": 56,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
       "seq": 8,
       "type": "stage_start",
       "stage": "execute",
       "payload": {},
-      "timestamp": "2026-11-19T15:27:36.934+09:00"
+      "timestamp": "2026-11-20T15:52:16.107+09:00"
     },
     {
-      "id": 95,
+      "id": 57,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
       "seq": 9,
       "type": "tool_call",
       "stage": "execute",
@@ -159,16 +159,16 @@
         "tool": "get_weather_context",
         "args": {
           "area": "역삼역",
-          "visit_date": "2026-11-19",
+          "visit_date": "2026-11-20",
           "visit_time": "12:00"
         }
       },
-      "timestamp": "2026-11-19T15:27:36.934+09:00"
+      "timestamp": "2026-11-20T15:52:16.108+09:00"
     },
     {
-      "id": 96,
+      "id": 58,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
       "seq": 10,
       "type": "tool_result",
       "stage": "execute",
@@ -177,15 +177,15 @@
         "ok": true,
         "error_code": null,
         "error_message": null,
-        "duration_ms": 1343,
-        "summary": "2026-11-19T12:00 기온 4.0°C, 강수확률 30%, 없음"
+        "duration_ms": 949,
+        "summary": "2026-11-20T12:00 기온 2.0°C, 강수확률 0%, 없음"
       },
-      "timestamp": "2026-11-19T15:27:38.278+09:00"
+      "timestamp": "2026-11-20T15:52:17.058+09:00"
     },
     {
-      "id": 97,
+      "id": 59,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
       "seq": 11,
       "type": "tool_call",
       "stage": "execute",
@@ -194,15 +194,17 @@
         "args": {
           "area": "역삼역",
           "max_results": 30,
-          "reference_date": "2026-11-19"
+          "order": "varied",
+          "seed": 0,
+          "reference_date": "2026-11-20"
         }
       },
-      "timestamp": "2026-11-19T15:27:38.279+09:00"
+      "timestamp": "2026-11-20T15:52:17.059+09:00"
     },
     {
-      "id": 98,
+      "id": 60,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
       "seq": 12,
       "type": "tool_result",
       "stage": "execute",
@@ -211,115 +213,16 @@
         "ok": true,
         "error_code": null,
         "error_message": null,
-        "duration_ms": 15,
+        "duration_ms": 28,
         "summary": "후보 30곳 (seoul_tourism_redtable=30, gangnam_general_restaurant_license=0)"
       },
-      "timestamp": "2026-11-19T15:27:38.295+09:00"
+      "timestamp": "2026-11-20T15:52:17.087+09:00"
     },
     {
-      "id": 99,
+      "id": 61,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
       "seq": 13,
-      "type": "tool_call",
-      "stage": "execute",
-      "payload": {
-        "tool": "get_restaurant_details",
-        "args": {
-          "source": "seoul_tourism_redtable",
-          "source_id": "793457"
-        }
-      },
-      "timestamp": "2026-11-19T15:27:38.296+09:00"
-    },
-    {
-      "id": 100,
-      "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 14,
-      "type": "tool_result",
-      "stage": "execute",
-      "payload": {
-        "tool": "get_restaurant_details",
-        "ok": true,
-        "error_code": null,
-        "error_message": null,
-        "duration_ms": 0,
-        "summary": "누들톡(역삼역점): 메뉴 0개, 영업시간 있음"
-      },
-      "timestamp": "2026-11-19T15:27:38.297+09:00"
-    },
-    {
-      "id": 101,
-      "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 15,
-      "type": "tool_call",
-      "stage": "execute",
-      "payload": {
-        "tool": "get_restaurant_details",
-        "args": {
-          "source": "seoul_tourism_redtable",
-          "source_id": "707009"
-        }
-      },
-      "timestamp": "2026-11-19T15:27:38.297+09:00"
-    },
-    {
-      "id": 102,
-      "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 16,
-      "type": "tool_result",
-      "stage": "execute",
-      "payload": {
-        "tool": "get_restaurant_details",
-        "ok": true,
-        "error_code": null,
-        "error_message": null,
-        "duration_ms": 0,
-        "summary": "다미분식: 메뉴 0개, 영업시간 미확인"
-      },
-      "timestamp": "2026-11-19T15:27:38.298+09:00"
-    },
-    {
-      "id": 103,
-      "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 17,
-      "type": "tool_call",
-      "stage": "execute",
-      "payload": {
-        "tool": "get_restaurant_details",
-        "args": {
-          "source": "seoul_tourism_redtable",
-          "source_id": "805304"
-        }
-      },
-      "timestamp": "2026-11-19T15:27:38.298+09:00"
-    },
-    {
-      "id": 104,
-      "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 18,
-      "type": "tool_result",
-      "stage": "execute",
-      "payload": {
-        "tool": "get_restaurant_details",
-        "ok": true,
-        "error_code": null,
-        "error_message": null,
-        "duration_ms": 0,
-        "summary": "만권화밥(역삼점): 메뉴 0개, 영업시간 있음"
-      },
-      "timestamp": "2026-11-19T15:27:38.299+09:00"
-    },
-    {
-      "id": 105,
-      "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 19,
       "type": "tool_call",
       "stage": "execute",
       "payload": {
@@ -329,13 +232,46 @@
           "source_id": "800819"
         }
       },
-      "timestamp": "2026-11-19T15:27:38.299+09:00"
+      "timestamp": "2026-11-20T15:52:17.088+09:00"
     },
     {
-      "id": 106,
+      "id": 62,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 20,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 14,
+      "type": "tool_result",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "ok": true,
+        "error_code": null,
+        "error_message": null,
+        "duration_ms": 1,
+        "summary": "명가교동짬뽕(역삼역점): 메뉴 47개, 영업시간 있음"
+      },
+      "timestamp": "2026-11-20T15:52:17.089+09:00"
+    },
+    {
+      "id": 63,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 15,
+      "type": "tool_call",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "args": {
+          "source": "seoul_tourism_redtable",
+          "source_id": "722233"
+        }
+      },
+      "timestamp": "2026-11-20T15:52:17.089+09:00"
+    },
+    {
+      "id": 64,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 16,
       "type": "tool_result",
       "stage": "execute",
       "payload": {
@@ -344,14 +280,80 @@
         "error_code": null,
         "error_message": null,
         "duration_ms": 0,
-        "summary": "명가교동짬뽕(역삼역점): 메뉴 47개, 영업시간 있음"
+        "summary": "파스토보이(역삼점): 메뉴 44개, 영업시간 미확인"
       },
-      "timestamp": "2026-11-19T15:27:38.300+09:00"
+      "timestamp": "2026-11-20T15:52:17.091+09:00"
     },
     {
-      "id": 107,
+      "id": 65,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 17,
+      "type": "tool_call",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "args": {
+          "source": "seoul_tourism_redtable",
+          "source_id": "209086"
+        }
+      },
+      "timestamp": "2026-11-20T15:52:17.091+09:00"
+    },
+    {
+      "id": 66,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 18,
+      "type": "tool_result",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "ok": true,
+        "error_code": null,
+        "error_message": null,
+        "duration_ms": 0,
+        "summary": "고향마을: 메뉴 5개, 영업시간 있음"
+      },
+      "timestamp": "2026-11-20T15:52:17.092+09:00"
+    },
+    {
+      "id": 67,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 19,
+      "type": "tool_call",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "args": {
+          "source": "seoul_tourism_redtable",
+          "source_id": "209180"
+        }
+      },
+      "timestamp": "2026-11-20T15:52:17.092+09:00"
+    },
+    {
+      "id": 68,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 20,
+      "type": "tool_result",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "ok": true,
+        "error_code": null,
+        "error_message": null,
+        "duration_ms": 1,
+        "summary": "정든김밥: 메뉴 67개, 영업시간 있음"
+      },
+      "timestamp": "2026-11-20T15:52:17.094+09:00"
+    },
+    {
+      "id": 69,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
       "seq": 21,
       "type": "tool_call",
       "stage": "execute",
@@ -359,15 +361,15 @@
         "tool": "get_restaurant_details",
         "args": {
           "source": "seoul_tourism_redtable",
-          "source_id": "781833"
+          "source_id": "209031"
         }
       },
-      "timestamp": "2026-11-19T15:27:38.300+09:00"
+      "timestamp": "2026-11-20T15:52:17.094+09:00"
     },
     {
-      "id": 108,
+      "id": 70,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
       "seq": 22,
       "type": "tool_result",
       "stage": "execute",
@@ -377,14 +379,14 @@
         "error_code": null,
         "error_message": null,
         "duration_ms": 0,
-        "summary": "질할브로스(역삼점): 메뉴 18개, 영업시간 있음"
+        "summary": "부산아지매국밥(역삼점): 메뉴 38개, 영업시간 있음"
       },
-      "timestamp": "2026-11-19T15:27:38.301+09:00"
+      "timestamp": "2026-11-20T15:52:17.095+09:00"
     },
     {
-      "id": 109,
+      "id": 71,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
       "seq": 23,
       "type": "tool_call",
       "stage": "execute",
@@ -392,15 +394,15 @@
         "tool": "get_restaurant_details",
         "args": {
           "source": "seoul_tourism_redtable",
-          "source_id": "772194"
+          "source_id": "366220"
         }
       },
-      "timestamp": "2026-11-19T15:27:38.301+09:00"
+      "timestamp": "2026-11-20T15:52:17.095+09:00"
     },
     {
-      "id": 110,
+      "id": 72,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
       "seq": 24,
       "type": "tool_result",
       "stage": "execute",
@@ -410,240 +412,240 @@
         "error_code": null,
         "error_message": null,
         "duration_ms": 0,
-        "summary": "파스쿠찌(역삼테헤란역삼테헤란점): 메뉴 0개, 영업시간 미확인"
+        "summary": "맷돌로만(역삼점): 메뉴 41개, 영업시간 미확인"
       },
-      "timestamp": "2026-11-19T15:27:38.302+09:00"
+      "timestamp": "2026-11-20T15:52:17.096+09:00"
     },
     {
-      "id": 111,
+      "id": 73,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
       "seq": 25,
+      "type": "tool_call",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "args": {
+          "source": "seoul_tourism_redtable",
+          "source_id": "428044"
+        }
+      },
+      "timestamp": "2026-11-20T15:52:17.096+09:00"
+    },
+    {
+      "id": 74,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 26,
+      "type": "tool_result",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "ok": true,
+        "error_code": null,
+        "error_message": null,
+        "duration_ms": 0,
+        "summary": "양국: 메뉴 18개, 영업시간 미확인"
+      },
+      "timestamp": "2026-11-20T15:52:17.097+09:00"
+    },
+    {
+      "id": 75,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 27,
+      "type": "tool_call",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "args": {
+          "source": "seoul_tourism_redtable",
+          "source_id": "39754"
+        }
+      },
+      "timestamp": "2026-11-20T15:52:17.097+09:00"
+    },
+    {
+      "id": 76,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 28,
+      "type": "tool_result",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "ok": true,
+        "error_code": null,
+        "error_message": null,
+        "duration_ms": 0,
+        "summary": "원당뼈다귀감자탕(역삼점): 메뉴 16개, 영업시간 있음"
+      },
+      "timestamp": "2026-11-20T15:52:17.098+09:00"
+    },
+    {
+      "id": 77,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 29,
+      "type": "tool_call",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "args": {
+          "source": "seoul_tourism_redtable",
+          "source_id": "545623"
+        }
+      },
+      "timestamp": "2026-11-20T15:52:17.098+09:00"
+    },
+    {
+      "id": 78,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 30,
+      "type": "tool_result",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "ok": true,
+        "error_code": null,
+        "error_message": null,
+        "duration_ms": 1,
+        "summary": "남오토코(역삼점): 메뉴 50개, 영업시간 있음"
+      },
+      "timestamp": "2026-11-20T15:52:17.099+09:00"
+    },
+    {
+      "id": 79,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 31,
+      "type": "tool_call",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "args": {
+          "source": "seoul_tourism_redtable",
+          "source_id": "638451"
+        }
+      },
+      "timestamp": "2026-11-20T15:52:17.100+09:00"
+    },
+    {
+      "id": 80,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 32,
+      "type": "tool_result",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "ok": true,
+        "error_code": null,
+        "error_message": null,
+        "duration_ms": 1,
+        "summary": "지아니스 나폴리(역삼본점): 메뉴 86개, 영업시간 있음"
+      },
+      "timestamp": "2026-11-20T15:52:17.101+09:00"
+    },
+    {
+      "id": 81,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 33,
       "type": "stage_end",
       "stage": "execute",
       "payload": {
         "candidates": 30,
-        "detailed": 6,
+        "detailed": 10,
         "cafes_for": 0,
         "weather": true,
         "area": "역삼역"
       },
-      "timestamp": "2026-11-19T15:27:38.303+09:00"
+      "timestamp": "2026-11-20T15:52:17.104+09:00"
     },
     {
-      "id": 112,
+      "id": 82,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 26,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 34,
       "type": "stage_start",
       "stage": "judge",
       "payload": {},
-      "timestamp": "2026-11-19T15:27:38.304+09:00"
+      "timestamp": "2026-11-20T15:52:17.104+09:00"
     },
     {
-      "id": 113,
+      "id": 83,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 27,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 35,
       "type": "stage_end",
       "stage": "judge",
       "payload": {
         "satisfied": 0,
-        "excluded": 6,
+        "excluded": 10,
         "next": "replan",
         "stop_reason": null
       },
-      "timestamp": "2026-11-19T15:27:38.305+09:00"
+      "timestamp": "2026-11-20T15:52:17.105+09:00"
     },
     {
-      "id": 114,
+      "id": 84,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 28,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 36,
       "type": "stage_start",
       "stage": "replan",
       "payload": {},
-      "timestamp": "2026-11-19T15:27:38.305+09:00"
+      "timestamp": "2026-11-20T15:52:17.106+09:00"
     },
     {
-      "id": 115,
+      "id": 85,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 29,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 37,
       "type": "replan",
       "stage": "replan",
       "payload": {
         "count": 1,
-        "reason": "충족 후보 0건 (판단한 6곳 모두 제외)",
+        "reason": "충족 후보 0건 (판단한 10곳 모두 제외)",
         "strategy": "next_batch",
-        "detail": "상세정보를 아직 조회하지 않은 후보 7~12번째 조회",
+        "detail": "상세정보를 아직 조회하지 않은 후보 11~16번째 조회",
         "limit": 3
       },
-      "timestamp": "2026-11-19T15:27:38.306+09:00"
+      "timestamp": "2026-11-20T15:52:17.106+09:00"
     },
     {
-      "id": 116,
+      "id": 86,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 30,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 38,
       "type": "stage_end",
       "stage": "replan",
       "payload": {
         "replan": {
           "count": 1,
-          "reason": "충족 후보 0건 (판단한 6곳 모두 제외)",
+          "reason": "충족 후보 0건 (판단한 10곳 모두 제외)",
           "strategy": "next_batch",
-          "detail": "상세정보를 아직 조회하지 않은 후보 7~12번째 조회"
+          "detail": "상세정보를 아직 조회하지 않은 후보 11~16번째 조회"
         }
       },
-      "timestamp": "2026-11-19T15:27:38.306+09:00"
+      "timestamp": "2026-11-20T15:52:17.106+09:00"
     },
     {
-      "id": 117,
+      "id": 87,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 31,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 39,
       "type": "stage_start",
       "stage": "execute",
       "payload": {},
-      "timestamp": "2026-11-19T15:27:38.307+09:00"
+      "timestamp": "2026-11-20T15:52:17.106+09:00"
     },
     {
-      "id": 118,
+      "id": 88,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 32,
-      "type": "tool_call",
-      "stage": "execute",
-      "payload": {
-        "tool": "get_restaurant_details",
-        "args": {
-          "source": "seoul_tourism_redtable",
-          "source_id": "793038"
-        }
-      },
-      "timestamp": "2026-11-19T15:27:38.307+09:00"
-    },
-    {
-      "id": 119,
-      "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 33,
-      "type": "tool_result",
-      "stage": "execute",
-      "payload": {
-        "tool": "get_restaurant_details",
-        "ok": true,
-        "error_code": null,
-        "error_message": null,
-        "duration_ms": 0,
-        "summary": "프레스시 FRESUSHI: 메뉴 0개, 영업시간 미확인"
-      },
-      "timestamp": "2026-11-19T15:27:38.308+09:00"
-    },
-    {
-      "id": 120,
-      "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 34,
-      "type": "tool_call",
-      "stage": "execute",
-      "payload": {
-        "tool": "get_restaurant_details",
-        "args": {
-          "source": "seoul_tourism_redtable",
-          "source_id": "337835"
-        }
-      },
-      "timestamp": "2026-11-19T15:27:38.308+09:00"
-    },
-    {
-      "id": 121,
-      "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 35,
-      "type": "tool_result",
-      "stage": "execute",
-      "payload": {
-        "tool": "get_restaurant_details",
-        "ok": true,
-        "error_code": null,
-        "error_message": null,
-        "duration_ms": 0,
-        "summary": "깐따레레스토랑: 메뉴 0개, 영업시간 미확인"
-      },
-      "timestamp": "2026-11-19T15:27:38.309+09:00"
-    },
-    {
-      "id": 122,
-      "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 36,
-      "type": "tool_call",
-      "stage": "execute",
-      "payload": {
-        "tool": "get_restaurant_details",
-        "args": {
-          "source": "seoul_tourism_redtable",
-          "source_id": "268642"
-        }
-      },
-      "timestamp": "2026-11-19T15:27:38.309+09:00"
-    },
-    {
-      "id": 123,
-      "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 37,
-      "type": "tool_result",
-      "stage": "execute",
-      "payload": {
-        "tool": "get_restaurant_details",
-        "ok": true,
-        "error_code": null,
-        "error_message": null,
-        "duration_ms": 0,
-        "summary": "로즈힐(파이낸스센터점): 메뉴 0개, 영업시간 미확인"
-      },
-      "timestamp": "2026-11-19T15:27:38.309+09:00"
-    },
-    {
-      "id": 124,
-      "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 38,
-      "type": "tool_call",
-      "stage": "execute",
-      "payload": {
-        "tool": "get_restaurant_details",
-        "args": {
-          "source": "seoul_tourism_redtable",
-          "source_id": "838138"
-        }
-      },
-      "timestamp": "2026-11-19T15:27:38.309+09:00"
-    },
-    {
-      "id": 125,
-      "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 39,
-      "type": "tool_result",
-      "stage": "execute",
-      "payload": {
-        "tool": "get_restaurant_details",
-        "ok": true,
-        "error_code": null,
-        "error_message": null,
-        "duration_ms": 0,
-        "summary": "리김밥(GFC점): 메뉴 0개, 영업시간 미확인"
-      },
-      "timestamp": "2026-11-19T15:27:38.310+09:00"
-    },
-    {
-      "id": 126,
-      "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
       "seq": 40,
       "type": "tool_call",
       "stage": "execute",
@@ -651,15 +653,15 @@
         "tool": "get_restaurant_details",
         "args": {
           "source": "seoul_tourism_redtable",
-          "source_id": "867421"
+          "source_id": "111460"
         }
       },
-      "timestamp": "2026-11-19T15:27:38.310+09:00"
+      "timestamp": "2026-11-20T15:52:17.107+09:00"
     },
     {
-      "id": 127,
+      "id": 89,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
       "seq": 41,
       "type": "tool_result",
       "stage": "execute",
@@ -668,15 +670,15 @@
         "ok": true,
         "error_code": null,
         "error_message": null,
-        "duration_ms": 0,
-        "summary": "맛따라 길따라: 메뉴 0개, 영업시간 미확인"
+        "duration_ms": 1,
+        "summary": "대독장(역삼점): 메뉴 25개, 영업시간 미확인"
       },
-      "timestamp": "2026-11-19T15:27:38.311+09:00"
+      "timestamp": "2026-11-20T15:52:17.108+09:00"
     },
     {
-      "id": 128,
+      "id": 90,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
       "seq": 42,
       "type": "tool_call",
       "stage": "execute",
@@ -684,15 +686,15 @@
         "tool": "get_restaurant_details",
         "args": {
           "source": "seoul_tourism_redtable",
-          "source_id": "428311"
+          "source_id": "86416"
         }
       },
-      "timestamp": "2026-11-19T15:27:38.311+09:00"
+      "timestamp": "2026-11-20T15:52:17.108+09:00"
     },
     {
-      "id": 129,
+      "id": 91,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
       "seq": 43,
       "type": "tool_result",
       "stage": "execute",
@@ -701,126 +703,423 @@
         "ok": true,
         "error_code": null,
         "error_message": null,
-        "duration_ms": 0,
-        "summary": "미소뜸(강남파이낸스센터점): 메뉴 0개, 영업시간 미확인"
+        "duration_ms": 1,
+        "summary": "순천만: 메뉴 48개, 영업시간 있음"
       },
-      "timestamp": "2026-11-19T15:27:38.311+09:00"
+      "timestamp": "2026-11-20T15:52:17.110+09:00"
     },
     {
-      "id": 130,
+      "id": 92,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
       "seq": 44,
+      "type": "tool_call",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "args": {
+          "source": "seoul_tourism_redtable",
+          "source_id": "63756"
+        }
+      },
+      "timestamp": "2026-11-20T15:52:17.110+09:00"
+    },
+    {
+      "id": 93,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 45,
+      "type": "tool_result",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "ok": true,
+        "error_code": null,
+        "error_message": null,
+        "duration_ms": 1,
+        "summary": "센민 이자카야: 메뉴 112개, 영업시간 미확인"
+      },
+      "timestamp": "2026-11-20T15:52:17.112+09:00"
+    },
+    {
+      "id": 94,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 46,
+      "type": "tool_call",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "args": {
+          "source": "seoul_tourism_redtable",
+          "source_id": "126082"
+        }
+      },
+      "timestamp": "2026-11-20T15:52:17.112+09:00"
+    },
+    {
+      "id": 95,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 47,
+      "type": "tool_result",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "ok": true,
+        "error_code": null,
+        "error_message": null,
+        "duration_ms": 1,
+        "summary": "내림손 삼계탕(역삼점): 메뉴 30개, 영업시간 있음"
+      },
+      "timestamp": "2026-11-20T15:52:17.113+09:00"
+    },
+    {
+      "id": 96,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 48,
+      "type": "tool_call",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "args": {
+          "source": "seoul_tourism_redtable",
+          "source_id": "228780"
+        }
+      },
+      "timestamp": "2026-11-20T15:52:17.114+09:00"
+    },
+    {
+      "id": 97,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 49,
+      "type": "tool_result",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "ok": true,
+        "error_code": null,
+        "error_message": null,
+        "duration_ms": 1,
+        "summary": "엘이베리코(역삼점): 메뉴 100개, 영업시간 있음"
+      },
+      "timestamp": "2026-11-20T15:52:17.115+09:00"
+    },
+    {
+      "id": 98,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 50,
+      "type": "tool_call",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "args": {
+          "source": "seoul_tourism_redtable",
+          "source_id": "737999"
+        }
+      },
+      "timestamp": "2026-11-20T15:52:17.116+09:00"
+    },
+    {
+      "id": 99,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 51,
+      "type": "tool_result",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "ok": true,
+        "error_code": null,
+        "error_message": null,
+        "duration_ms": 0,
+        "summary": "얼레이: 메뉴 1개, 영업시간 있음"
+      },
+      "timestamp": "2026-11-20T15:52:17.117+09:00"
+    },
+    {
+      "id": 100,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 52,
+      "type": "tool_call",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "args": {
+          "source": "seoul_tourism_redtable",
+          "source_id": "188569"
+        }
+      },
+      "timestamp": "2026-11-20T15:52:17.117+09:00"
+    },
+    {
+      "id": 101,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 53,
+      "type": "tool_result",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "ok": true,
+        "error_code": null,
+        "error_message": null,
+        "duration_ms": 0,
+        "summary": "한촌설렁탕(역삼GS점): 메뉴 11개, 영업시간 있음"
+      },
+      "timestamp": "2026-11-20T15:52:17.118+09:00"
+    },
+    {
+      "id": 102,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 54,
+      "type": "tool_call",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "args": {
+          "source": "seoul_tourism_redtable",
+          "source_id": "366287"
+        }
+      },
+      "timestamp": "2026-11-20T15:52:17.118+09:00"
+    },
+    {
+      "id": 103,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 55,
+      "type": "tool_result",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "ok": true,
+        "error_code": null,
+        "error_message": null,
+        "duration_ms": 0,
+        "summary": "전봇대: 메뉴 24개, 영업시간 있음"
+      },
+      "timestamp": "2026-11-20T15:52:17.119+09:00"
+    },
+    {
+      "id": 104,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 56,
+      "type": "tool_call",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "args": {
+          "source": "seoul_tourism_redtable",
+          "source_id": "366120"
+        }
+      },
+      "timestamp": "2026-11-20T15:52:17.119+09:00"
+    },
+    {
+      "id": 105,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 57,
+      "type": "tool_result",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "ok": true,
+        "error_code": null,
+        "error_message": null,
+        "duration_ms": 0,
+        "summary": "바다풍경: 메뉴 29개, 영업시간 있음"
+      },
+      "timestamp": "2026-11-20T15:52:17.120+09:00"
+    },
+    {
+      "id": 106,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 58,
+      "type": "tool_call",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "args": {
+          "source": "seoul_tourism_redtable",
+          "source_id": "46127"
+        }
+      },
+      "timestamp": "2026-11-20T15:52:17.120+09:00"
+    },
+    {
+      "id": 107,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 59,
+      "type": "tool_result",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "ok": true,
+        "error_code": null,
+        "error_message": null,
+        "duration_ms": 1,
+        "summary": "신동궁감자탕(본점): 메뉴 24개, 영업시간 있음"
+      },
+      "timestamp": "2026-11-20T15:52:17.122+09:00"
+    },
+    {
+      "id": 108,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 60,
       "type": "stage_end",
       "stage": "execute",
       "payload": {
         "candidates": 30,
-        "detailed": 12,
+        "detailed": 20,
         "cafes_for": 0,
         "weather": true,
         "area": "역삼역"
       },
-      "timestamp": "2026-11-19T15:27:38.312+09:00"
+      "timestamp": "2026-11-20T15:52:17.126+09:00"
     },
     {
-      "id": 131,
+      "id": 109,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 45,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 61,
       "type": "stage_start",
       "stage": "judge",
       "payload": {},
-      "timestamp": "2026-11-19T15:27:38.313+09:00"
+      "timestamp": "2026-11-20T15:52:17.126+09:00"
     },
     {
-      "id": 132,
+      "id": 110,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 46,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 62,
       "type": "stage_end",
       "stage": "judge",
       "payload": {
         "satisfied": 0,
-        "excluded": 12,
+        "excluded": 20,
         "next": "replan",
         "stop_reason": null
       },
-      "timestamp": "2026-11-19T15:27:38.314+09:00"
+      "timestamp": "2026-11-20T15:52:17.129+09:00"
     },
     {
-      "id": 133,
+      "id": 111,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 47,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 63,
       "type": "stage_start",
       "stage": "replan",
       "payload": {},
-      "timestamp": "2026-11-19T15:27:38.314+09:00"
+      "timestamp": "2026-11-20T15:52:17.130+09:00"
     },
     {
-      "id": 134,
+      "id": 112,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 48,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 64,
       "type": "replan",
       "stage": "replan",
       "payload": {
         "count": 2,
-        "reason": "충족 후보 0건 (판단한 12곳 모두 제외)",
+        "reason": "충족 후보 0건 (판단한 20곳 모두 제외)",
         "strategy": "next_batch",
-        "detail": "상세정보를 아직 조회하지 않은 후보 13~18번째 조회",
+        "detail": "상세정보를 아직 조회하지 않은 후보 21~26번째 조회",
         "limit": 3
       },
-      "timestamp": "2026-11-19T15:27:38.315+09:00"
+      "timestamp": "2026-11-20T15:52:17.130+09:00"
     },
     {
-      "id": 135,
+      "id": 113,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 49,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 65,
       "type": "stage_end",
       "stage": "replan",
       "payload": {
         "replan": {
           "count": 2,
-          "reason": "충족 후보 0건 (판단한 12곳 모두 제외)",
+          "reason": "충족 후보 0건 (판단한 20곳 모두 제외)",
           "strategy": "next_batch",
-          "detail": "상세정보를 아직 조회하지 않은 후보 13~18번째 조회"
+          "detail": "상세정보를 아직 조회하지 않은 후보 21~26번째 조회"
         }
       },
-      "timestamp": "2026-11-19T15:27:38.315+09:00"
+      "timestamp": "2026-11-20T15:52:17.130+09:00"
     },
     {
-      "id": 136,
+      "id": 114,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 50,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 66,
       "type": "stage_start",
       "stage": "execute",
       "payload": {},
-      "timestamp": "2026-11-19T15:27:38.315+09:00"
+      "timestamp": "2026-11-20T15:52:17.130+09:00"
     },
     {
-      "id": 137,
+      "id": 115,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 51,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 67,
       "type": "tool_call",
       "stage": "execute",
       "payload": {
         "tool": "get_restaurant_details",
         "args": {
           "source": "seoul_tourism_redtable",
-          "source_id": "428542"
+          "source_id": "22649"
         }
       },
-      "timestamp": "2026-11-19T15:27:38.316+09:00"
+      "timestamp": "2026-11-20T15:52:17.130+09:00"
     },
     {
-      "id": 138,
+      "id": 116,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 52,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 68,
+      "type": "tool_result",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "ok": true,
+        "error_code": null,
+        "error_message": null,
+        "duration_ms": 1,
+        "summary": "석기정돌솥부대찌개(강남점): 메뉴 11개, 영업시간 미확인"
+      },
+      "timestamp": "2026-11-20T15:52:17.132+09:00"
+    },
+    {
+      "id": 117,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 69,
+      "type": "tool_call",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "args": {
+          "source": "seoul_tourism_redtable",
+          "source_id": "337667"
+        }
+      },
+      "timestamp": "2026-11-20T15:52:17.132+09:00"
+    },
+    {
+      "id": 118,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 70,
       "type": "tool_result",
       "stage": "execute",
       "payload": {
@@ -829,31 +1128,31 @@
         "error_code": null,
         "error_message": null,
         "duration_ms": 0,
-        "summary": "부산오뎅: 메뉴 0개, 영업시간 미확인"
+        "summary": "리원: 메뉴 42개, 영업시간 있음"
       },
-      "timestamp": "2026-11-19T15:27:38.316+09:00"
+      "timestamp": "2026-11-20T15:52:17.133+09:00"
     },
     {
-      "id": 139,
+      "id": 119,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 53,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 71,
       "type": "tool_call",
       "stage": "execute",
       "payload": {
         "tool": "get_restaurant_details",
         "args": {
           "source": "seoul_tourism_redtable",
-          "source_id": "709177"
+          "source_id": "228747"
         }
       },
-      "timestamp": "2026-11-19T15:27:38.316+09:00"
+      "timestamp": "2026-11-20T15:52:17.133+09:00"
     },
     {
-      "id": 140,
+      "id": 120,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 54,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 72,
       "type": "tool_result",
       "stage": "execute",
       "payload": {
@@ -862,31 +1161,31 @@
         "error_code": null,
         "error_message": null,
         "duration_ms": 0,
-        "summary": "브럭시(강남파이낸스센터점): 메뉴 0개, 영업시간 미확인"
+        "summary": "타잔갈비: 메뉴 10개, 영업시간 있음"
       },
-      "timestamp": "2026-11-19T15:27:38.317+09:00"
+      "timestamp": "2026-11-20T15:52:17.134+09:00"
     },
     {
-      "id": 141,
+      "id": 121,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 55,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 73,
       "type": "tool_call",
       "stage": "execute",
       "payload": {
         "tool": "get_restaurant_details",
         "args": {
           "source": "seoul_tourism_redtable",
-          "source_id": "167589"
+          "source_id": "602856"
         }
       },
-      "timestamp": "2026-11-19T15:27:38.317+09:00"
+      "timestamp": "2026-11-20T15:52:17.134+09:00"
     },
     {
-      "id": 142,
+      "id": 122,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 56,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 74,
       "type": "tool_result",
       "stage": "execute",
       "payload": {
@@ -895,31 +1194,64 @@
         "error_code": null,
         "error_message": null,
         "duration_ms": 0,
-        "summary": "비츠: 메뉴 0개, 영업시간 미확인"
+        "summary": "브릭앤: 메뉴 1개, 영업시간 있음"
       },
-      "timestamp": "2026-11-19T15:27:38.318+09:00"
+      "timestamp": "2026-11-20T15:52:17.135+09:00"
     },
     {
-      "id": 143,
+      "id": 123,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 57,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 75,
       "type": "tool_call",
       "stage": "execute",
       "payload": {
         "tool": "get_restaurant_details",
         "args": {
           "source": "seoul_tourism_redtable",
-          "source_id": "502890"
+          "source_id": "789671"
         }
       },
-      "timestamp": "2026-11-19T15:27:38.318+09:00"
+      "timestamp": "2026-11-20T15:52:17.135+09:00"
     },
     {
-      "id": 144,
+      "id": 124,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 58,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 76,
+      "type": "tool_result",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "ok": true,
+        "error_code": null,
+        "error_message": null,
+        "duration_ms": 1,
+        "summary": "요녀석(강남점): 메뉴 34개, 영업시간 미확인"
+      },
+      "timestamp": "2026-11-20T15:52:17.137+09:00"
+    },
+    {
+      "id": 125,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 77,
+      "type": "tool_call",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "args": {
+          "source": "seoul_tourism_redtable",
+          "source_id": "39693"
+        }
+      },
+      "timestamp": "2026-11-20T15:52:17.137+09:00"
+    },
+    {
+      "id": 126,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 78,
       "type": "tool_result",
       "stage": "execute",
       "payload": {
@@ -928,31 +1260,31 @@
         "error_code": null,
         "error_message": null,
         "duration_ms": 0,
-        "summary": "사보텐(GFC점): 메뉴 0개, 영업시간 있음"
+        "summary": "옛날그맛명동칼국수: 메뉴 14개, 영업시간 있음"
       },
-      "timestamp": "2026-11-19T15:27:38.319+09:00"
+      "timestamp": "2026-11-20T15:52:17.138+09:00"
     },
     {
-      "id": 145,
+      "id": 127,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 59,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 79,
       "type": "tool_call",
       "stage": "execute",
       "payload": {
         "tool": "get_restaurant_details",
         "args": {
           "source": "seoul_tourism_redtable",
-          "source_id": "312631"
+          "source_id": "366045"
         }
       },
-      "timestamp": "2026-11-19T15:27:38.319+09:00"
+      "timestamp": "2026-11-20T15:52:17.138+09:00"
     },
     {
-      "id": 146,
+      "id": 128,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 60,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 80,
       "type": "tool_result",
       "stage": "execute",
       "payload": {
@@ -961,31 +1293,31 @@
         "error_code": null,
         "error_message": null,
         "duration_ms": 0,
-        "summary": "생어거스틴(강남파이낸스점): 메뉴 0개, 영업시간 미확인"
+        "summary": "초아국수(본점): 메뉴 2개, 영업시간 있음"
       },
-      "timestamp": "2026-11-19T15:27:38.319+09:00"
+      "timestamp": "2026-11-20T15:52:17.139+09:00"
     },
     {
-      "id": 147,
+      "id": 129,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 61,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 81,
       "type": "tool_call",
       "stage": "execute",
       "payload": {
         "tool": "get_restaurant_details",
         "args": {
           "source": "seoul_tourism_redtable",
-          "source_id": "519008"
+          "source_id": "804161"
         }
       },
-      "timestamp": "2026-11-19T15:27:38.320+09:00"
+      "timestamp": "2026-11-20T15:52:17.139+09:00"
     },
     {
-      "id": 148,
+      "id": 130,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 62,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 82,
       "type": "tool_result",
       "stage": "execute",
       "payload": {
@@ -994,125 +1326,425 @@
         "error_code": null,
         "error_message": null,
         "duration_ms": 0,
-        "summary": "속초코다리냉면(역삼점): 메뉴 0개, 영업시간 미확인"
+        "summary": "담뿍화로된장찌개(언주로점): 메뉴 2개, 영업시간 있음"
       },
-      "timestamp": "2026-11-19T15:27:38.320+09:00"
+      "timestamp": "2026-11-20T15:52:17.140+09:00"
     },
     {
-      "id": 149,
+      "id": 131,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 63,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 83,
+      "type": "tool_call",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "args": {
+          "source": "seoul_tourism_redtable",
+          "source_id": "760698"
+        }
+      },
+      "timestamp": "2026-11-20T15:52:17.141+09:00"
+    },
+    {
+      "id": 132,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 84,
+      "type": "tool_result",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "ok": true,
+        "error_code": null,
+        "error_message": null,
+        "duration_ms": 0,
+        "summary": "두찜(역삼점): 메뉴 29개, 영업시간 있음"
+      },
+      "timestamp": "2026-11-20T15:52:17.142+09:00"
+    },
+    {
+      "id": 133,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 85,
+      "type": "tool_call",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "args": {
+          "source": "seoul_tourism_redtable",
+          "source_id": "463856"
+        }
+      },
+      "timestamp": "2026-11-20T15:52:17.142+09:00"
+    },
+    {
+      "id": 134,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 86,
+      "type": "tool_result",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "ok": true,
+        "error_code": null,
+        "error_message": null,
+        "duration_ms": 1,
+        "summary": "온새미로 우리집 밥상: 메뉴 53개, 영업시간 미확인"
+      },
+      "timestamp": "2026-11-20T15:52:17.144+09:00"
+    },
+    {
+      "id": 135,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 87,
       "type": "stage_end",
       "stage": "execute",
       "payload": {
         "candidates": 30,
-        "detailed": 18,
+        "detailed": 30,
         "cafes_for": 0,
         "weather": true,
         "area": "역삼역"
       },
-      "timestamp": "2026-11-19T15:27:38.321+09:00"
+      "timestamp": "2026-11-20T15:52:17.146+09:00"
     },
     {
-      "id": 150,
+      "id": 136,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 64,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 88,
       "type": "stage_start",
       "stage": "judge",
       "payload": {},
-      "timestamp": "2026-11-19T15:27:38.321+09:00"
+      "timestamp": "2026-11-20T15:52:17.147+09:00"
     },
     {
-      "id": 151,
+      "id": 137,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 65,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 89,
       "type": "stage_end",
       "stage": "judge",
       "payload": {
         "satisfied": 0,
-        "excluded": 18,
+        "excluded": 30,
         "next": "replan",
         "stop_reason": null
       },
-      "timestamp": "2026-11-19T15:27:38.322+09:00"
+      "timestamp": "2026-11-20T15:52:17.150+09:00"
     },
     {
-      "id": 152,
+      "id": 138,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 66,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 90,
       "type": "stage_start",
       "stage": "replan",
       "payload": {},
-      "timestamp": "2026-11-19T15:27:38.323+09:00"
+      "timestamp": "2026-11-20T15:52:17.150+09:00"
     },
     {
-      "id": 153,
+      "id": 139,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 67,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 91,
       "type": "replan",
       "stage": "replan",
       "payload": {
         "count": 3,
-        "reason": "충족 후보 0건 (판단한 18곳 모두 제외)",
-        "strategy": "next_batch",
-        "detail": "상세정보를 아직 조회하지 않은 후보 19~24번째 조회",
+        "reason": "충족 후보 0건 (판단한 30곳 모두 제외)",
+        "strategy": "adjacent_area",
+        "detail": "역삼역 후보를 모두 확인해 인접한 언주역 주변을 같은 조건으로 탐색",
         "limit": 3
       },
-      "timestamp": "2026-11-19T15:27:38.323+09:00"
+      "timestamp": "2026-11-20T15:52:17.150+09:00"
     },
     {
-      "id": 154,
+      "id": 140,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 68,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 92,
       "type": "stage_end",
       "stage": "replan",
       "payload": {
         "replan": {
           "count": 3,
-          "reason": "충족 후보 0건 (판단한 18곳 모두 제외)",
-          "strategy": "next_batch",
-          "detail": "상세정보를 아직 조회하지 않은 후보 19~24번째 조회"
+          "reason": "충족 후보 0건 (판단한 30곳 모두 제외)",
+          "strategy": "adjacent_area",
+          "detail": "역삼역 후보를 모두 확인해 인접한 언주역 주변을 같은 조건으로 탐색"
         }
       },
-      "timestamp": "2026-11-19T15:27:38.323+09:00"
+      "timestamp": "2026-11-20T15:52:17.150+09:00"
+    },
+    {
+      "id": 141,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 93,
+      "type": "stage_start",
+      "stage": "execute",
+      "payload": {},
+      "timestamp": "2026-11-20T15:52:17.151+09:00"
+    },
+    {
+      "id": 142,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 94,
+      "type": "tool_call",
+      "stage": "execute",
+      "payload": {
+        "tool": "search_restaurant_candidates",
+        "args": {
+          "area": "언주역",
+          "max_results": 30,
+          "order": "varied",
+          "seed": 0,
+          "reference_date": "2026-11-20"
+        }
+      },
+      "timestamp": "2026-11-20T15:52:17.151+09:00"
+    },
+    {
+      "id": 143,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 95,
+      "type": "tool_result",
+      "stage": "execute",
+      "payload": {
+        "tool": "search_restaurant_candidates",
+        "ok": true,
+        "error_code": null,
+        "error_message": null,
+        "duration_ms": 18,
+        "summary": "후보 30곳 (seoul_tourism_redtable=30, gangnam_general_restaurant_license=0)"
+      },
+      "timestamp": "2026-11-20T15:52:17.169+09:00"
+    },
+    {
+      "id": 144,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 96,
+      "type": "tool_call",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "args": {
+          "source": "seoul_tourism_redtable",
+          "source_id": "312785"
+        }
+      },
+      "timestamp": "2026-11-20T15:52:17.170+09:00"
+    },
+    {
+      "id": 145,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 97,
+      "type": "tool_result",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "ok": true,
+        "error_code": null,
+        "error_message": null,
+        "duration_ms": 1,
+        "summary": "부산아지매국밥(차병원사거리점): 메뉴 38개, 영업시간 있음"
+      },
+      "timestamp": "2026-11-20T15:52:17.171+09:00"
+    },
+    {
+      "id": 146,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 98,
+      "type": "tool_call",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "args": {
+          "source": "seoul_tourism_redtable",
+          "source_id": "366285"
+        }
+      },
+      "timestamp": "2026-11-20T15:52:17.171+09:00"
+    },
+    {
+      "id": 147,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 99,
+      "type": "tool_result",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "ok": true,
+        "error_code": null,
+        "error_message": null,
+        "duration_ms": 0,
+        "summary": "논현참족발: 메뉴 1개, 영업시간 미확인"
+      },
+      "timestamp": "2026-11-20T15:52:17.172+09:00"
+    },
+    {
+      "id": 148,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 100,
+      "type": "tool_call",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "args": {
+          "source": "seoul_tourism_redtable",
+          "source_id": "906168"
+        }
+      },
+      "timestamp": "2026-11-20T15:52:17.173+09:00"
+    },
+    {
+      "id": 149,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 101,
+      "type": "tool_result",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "ok": true,
+        "error_code": null,
+        "error_message": null,
+        "duration_ms": 0,
+        "summary": "앤그릴: 메뉴 3개, 영업시간 미확인"
+      },
+      "timestamp": "2026-11-20T15:52:17.174+09:00"
+    },
+    {
+      "id": 150,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 102,
+      "type": "tool_call",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "args": {
+          "source": "seoul_tourism_redtable",
+          "source_id": "646849"
+        }
+      },
+      "timestamp": "2026-11-20T15:52:17.174+09:00"
+    },
+    {
+      "id": 151,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 103,
+      "type": "tool_result",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "ok": true,
+        "error_code": null,
+        "error_message": null,
+        "duration_ms": 1,
+        "summary": "제주생선구이 올래밥상(논현점): 메뉴 29개, 영업시간 미확인"
+      },
+      "timestamp": "2026-11-20T15:52:17.175+09:00"
+    },
+    {
+      "id": 152,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 104,
+      "type": "tool_call",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "args": {
+          "source": "seoul_tourism_redtable",
+          "source_id": "209292"
+        }
+      },
+      "timestamp": "2026-11-20T15:52:17.175+09:00"
+    },
+    {
+      "id": 153,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 105,
+      "type": "tool_result",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "ok": true,
+        "error_code": null,
+        "error_message": null,
+        "duration_ms": 1,
+        "summary": "신천할매떡볶이(논현점): 메뉴 37개, 영업시간 있음"
+      },
+      "timestamp": "2026-11-20T15:52:17.177+09:00"
+    },
+    {
+      "id": 154,
+      "session_id": "S3",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 106,
+      "type": "tool_call",
+      "stage": "execute",
+      "payload": {
+        "tool": "get_restaurant_details",
+        "args": {
+          "source": "seoul_tourism_redtable",
+          "source_id": "428088"
+        }
+      },
+      "timestamp": "2026-11-20T15:52:17.177+09:00"
     },
     {
       "id": 155,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 69,
-      "type": "stage_start",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 107,
+      "type": "tool_result",
       "stage": "execute",
-      "payload": {},
-      "timestamp": "2026-11-19T15:27:38.324+09:00"
+      "payload": {
+        "tool": "get_restaurant_details",
+        "ok": true,
+        "error_code": null,
+        "error_message": null,
+        "duration_ms": 0,
+        "summary": "제주 탐하리(역삼점): 메뉴 13개, 영업시간 있음"
+      },
+      "timestamp": "2026-11-20T15:52:17.178+09:00"
     },
     {
       "id": 156,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 70,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 108,
       "type": "tool_call",
       "stage": "execute",
       "payload": {
         "tool": "get_restaurant_details",
         "args": {
           "source": "seoul_tourism_redtable",
-          "source_id": "532197"
+          "source_id": "29119"
         }
       },
-      "timestamp": "2026-11-19T15:27:38.324+09:00"
+      "timestamp": "2026-11-20T15:52:17.178+09:00"
     },
     {
       "id": 157,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 71,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 109,
       "type": "tool_result",
       "stage": "execute",
       "payload": {
@@ -1121,31 +1753,31 @@
         "error_code": null,
         "error_message": null,
         "duration_ms": 0,
-        "summary": "스노우폭스(역삼 GFC점): 메뉴 113개, 영업시간 있음"
+        "summary": "옛골: 메뉴 8개, 영업시간 있음"
       },
-      "timestamp": "2026-11-19T15:27:38.325+09:00"
+      "timestamp": "2026-11-20T15:52:17.179+09:00"
     },
     {
       "id": 158,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 72,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 110,
       "type": "tool_call",
       "stage": "execute",
       "payload": {
         "tool": "get_restaurant_details",
         "args": {
           "source": "seoul_tourism_redtable",
-          "source_id": "788344"
+          "source_id": "836821"
         }
       },
-      "timestamp": "2026-11-19T15:27:38.326+09:00"
+      "timestamp": "2026-11-20T15:52:17.179+09:00"
     },
     {
       "id": 159,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 73,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 111,
       "type": "tool_result",
       "stage": "execute",
       "payload": {
@@ -1153,32 +1785,32 @@
         "ok": true,
         "error_code": null,
         "error_message": null,
-        "duration_ms": 0,
-        "summary": "아그라(GFC점): 메뉴 54개, 영업시간 있음"
+        "duration_ms": 1,
+        "summary": "해물꽃돈: 메뉴 24개, 영업시간 있음"
       },
-      "timestamp": "2026-11-19T15:27:38.326+09:00"
+      "timestamp": "2026-11-20T15:52:17.181+09:00"
     },
     {
       "id": 160,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 74,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 112,
       "type": "tool_call",
       "stage": "execute",
       "payload": {
         "tool": "get_restaurant_details",
         "args": {
           "source": "seoul_tourism_redtable",
-          "source_id": "949083"
+          "source_id": "337650"
         }
       },
-      "timestamp": "2026-11-19T15:27:38.327+09:00"
+      "timestamp": "2026-11-20T15:52:17.181+09:00"
     },
     {
       "id": 161,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 75,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 113,
       "type": "tool_result",
       "stage": "execute",
       "payload": {
@@ -1187,31 +1819,31 @@
         "error_code": null,
         "error_message": null,
         "duration_ms": 0,
-        "summary": "제주스(GFC몰점): 메뉴 0개, 영업시간 미확인"
+        "summary": "내아들밥상: 메뉴 1개, 영업시간 미확인"
       },
-      "timestamp": "2026-11-19T15:27:38.327+09:00"
+      "timestamp": "2026-11-20T15:52:17.182+09:00"
     },
     {
       "id": 162,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 76,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 114,
       "type": "tool_call",
       "stage": "execute",
       "payload": {
         "tool": "get_restaurant_details",
         "args": {
           "source": "seoul_tourism_redtable",
-          "source_id": "692658"
+          "source_id": "708702"
         }
       },
-      "timestamp": "2026-11-19T15:27:38.327+09:00"
+      "timestamp": "2026-11-20T15:52:17.182+09:00"
     },
     {
       "id": 163,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 77,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 115,
       "type": "tool_result",
       "stage": "execute",
       "payload": {
@@ -1219,155 +1851,89 @@
         "ok": true,
         "error_code": null,
         "error_message": null,
-        "duration_ms": 0,
-        "summary": "차이(역삼GFC점): 메뉴 0개, 영업시간 미확인"
+        "duration_ms": 1,
+        "summary": "글래드 라이브 볼트82: 메뉴 13개, 영업시간 미확인"
       },
-      "timestamp": "2026-11-19T15:27:38.328+09:00"
+      "timestamp": "2026-11-20T15:52:17.183+09:00"
     },
     {
       "id": 164,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 78,
-      "type": "tool_call",
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 116,
+      "type": "stage_end",
       "stage": "execute",
       "payload": {
-        "tool": "get_restaurant_details",
-        "args": {
-          "source": "seoul_tourism_redtable",
-          "source_id": "126155"
-        }
+        "candidates": 59,
+        "detailed": 40,
+        "cafes_for": 0,
+        "weather": true,
+        "area": "언주역"
       },
-      "timestamp": "2026-11-19T15:27:38.328+09:00"
+      "timestamp": "2026-11-20T15:52:17.190+09:00"
     },
     {
       "id": 165,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 79,
-      "type": "tool_result",
-      "stage": "execute",
-      "payload": {
-        "tool": "get_restaurant_details",
-        "ok": true,
-        "error_code": null,
-        "error_message": null,
-        "duration_ms": 0,
-        "summary": "채근담(역삼점): 메뉴 0개, 영업시간 있음"
-      },
-      "timestamp": "2026-11-19T15:27:38.328+09:00"
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 117,
+      "type": "stage_start",
+      "stage": "judge",
+      "payload": {},
+      "timestamp": "2026-11-20T15:52:17.191+09:00"
     },
     {
       "id": 166,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 80,
-      "type": "tool_call",
-      "stage": "execute",
-      "payload": {
-        "tool": "get_restaurant_details",
-        "args": {
-          "source": "seoul_tourism_redtable",
-          "source_id": "523155"
-        }
-      },
-      "timestamp": "2026-11-19T15:27:38.329+09:00"
-    },
-    {
-      "id": 167,
-      "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 81,
-      "type": "tool_result",
-      "stage": "execute",
-      "payload": {
-        "tool": "get_restaurant_details",
-        "ok": true,
-        "error_code": null,
-        "error_message": null,
-        "duration_ms": 0,
-        "summary": "캘리포니아피자키친(역삼 GFC점): 메뉴 0개, 영업시간 있음"
-      },
-      "timestamp": "2026-11-19T15:27:38.329+09:00"
-    },
-    {
-      "id": 168,
-      "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 82,
-      "type": "stage_end",
-      "stage": "execute",
-      "payload": {
-        "candidates": 30,
-        "detailed": 24,
-        "cafes_for": 0,
-        "weather": true,
-        "area": "역삼역"
-      },
-      "timestamp": "2026-11-19T15:27:38.330+09:00"
-    },
-    {
-      "id": 169,
-      "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 83,
-      "type": "stage_start",
-      "stage": "judge",
-      "payload": {},
-      "timestamp": "2026-11-19T15:27:38.331+09:00"
-    },
-    {
-      "id": 170,
-      "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 84,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 118,
       "type": "stage_end",
       "stage": "judge",
       "payload": {
         "satisfied": 0,
-        "excluded": 24,
+        "excluded": 40,
         "next": "respond",
         "stop_reason": "재계획 상한(3회)에 도달"
       },
-      "timestamp": "2026-11-19T15:27:38.332+09:00"
+      "timestamp": "2026-11-20T15:52:17.194+09:00"
     },
     {
-      "id": 171,
+      "id": 167,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 85,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 119,
       "type": "stage_start",
       "stage": "respond",
       "payload": {},
-      "timestamp": "2026-11-19T15:27:38.333+09:00"
+      "timestamp": "2026-11-20T15:52:17.195+09:00"
     },
     {
-      "id": 172,
+      "id": 168,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 86,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 120,
       "type": "stage_end",
       "stage": "respond",
       "payload": {
         "recommendations": 0,
         "message_by": "template"
       },
-      "timestamp": "2026-11-19T15:27:38.333+09:00"
+      "timestamp": "2026-11-20T15:52:17.195+09:00"
     },
     {
-      "id": 173,
+      "id": 169,
       "session_id": "S3",
-      "run_id": "44b1f4b6d21343aab6968151e3174cf8",
-      "seq": 87,
+      "run_id": "fb031b959ff5483bb52d366d161ecaf3",
+      "seq": 121,
       "type": "run_end",
       "stage": null,
       "payload": {
         "intent": "recommend",
         "recommendations": 0,
-        "tool_calls": 26,
+        "tool_calls": 43,
         "replans": 3
       },
-      "timestamp": "2026-11-19T15:27:38.334+09:00"
+      "timestamp": "2026-11-20T15:52:17.196+09:00"
     }
   ]
 }

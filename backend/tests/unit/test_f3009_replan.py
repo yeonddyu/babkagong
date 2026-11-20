@@ -10,7 +10,7 @@ from tests.unit.test_f3002_restaurant_candidates import rt_row
 
 def agent(make_settings, session, **kw):
     return MainAgent(make_registry(make_settings, session, **{k: v for k, v in kw.items() if k != "max_replans"}),
-                     today_fn=lambda: TODAY, max_replans=kw.get("max_replans", 3))
+                     today_fn=lambda: TODAY, seed_fn=lambda: 0, max_replans=kw.get("max_replans", 3))
 
 
 def fresh_calls(result):

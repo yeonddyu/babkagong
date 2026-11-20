@@ -1,23 +1,23 @@
 # 대표 시나리오 검증 결과 (요구사항정의서 4.7)
 
-- 실행 일시: 2026-11-19 15:28 KST, 명령: `cd backend && ../.venv/bin/python -m scripts.run_scenarios`
-- 외부 API: **실제 호출** (서울관광재단·서울 열린데이터광장·기상청·카카오 로컬)
-- LLM: 사용 (gpt-4o-mini)
+- 실행 일시: 2026-11-20 15:52 KST, 명령: `cd backend && ../.venv/bin/python -m scripts.run_scenarios`
+- 데이터: 유효한 로컬 캐시를 재사용하고 필요한 외부 API를 호출. Tool별 실제 실행은 아래 기록 참조.
+- 요청 분석: LLM 사용 (gpt-4o-mini). 최종 문장은 구조화된 결과로 생성.
 - 실행 로그 샘플: `docs/samples/run_log_S1_full.json`(대표 요청 1건 전체), `docs/samples/run_log_S3_replan_limit.json`(재계획 사례)
-- 변경 이력: 1차 실행에서 S2 요청('강남역 일식 1만 2천원 이하로 12시 점심')은 실제 데이터상 첫 상세조회 묶음에서 충족 후보가 나와 재계획이 발생하지 않음(FAIL, 시나리오 선택 오류 — 코드 결함 아님). 재계획이 실제로 발생하는 요청으로 교체 후 재실행.
+- 후보를 고르는 seed는 0으로 고정. S2는 규칙 분석을 사용해 현재 캐시에서 재계획 후 추천을 검증한다. 캐시가 바뀌면 결과가 달라질 수 있으며, 고정 데이터 검증은 `test_f3009_replan.py`에서 수행한다.
 
 | ID | 시나리오 | 결과 | 시간(초) | Tool 호출(신규) | 재계획 | 추천 |
 |---|---|---|---|---|---|---|
-| S1 | 제약을 한 번에 충족 | PASS | 7.39 | 9 | - | 명가교동짬뽕(역삼역점), 질할브로스(역삼점) |
-| S2 | 재계획이 필요한 요청 | PASS | 5.63 | 16 | 1:next_batch | 정통일식 최수사 대게마을, 미네스시 |
-| S3 | 재계획 상한 도달 | PASS | 4.49 | 26 | 1:next_batch, 2:next_batch, 3:next_batch | - |
-| S4 | Tool 하나가 실패 (기상청 키 제거) | PASS | 5.99 | 10 | - | 베트남 쌀국수, 만남의 광장, 솔이네 |
-| S5 | Tool 이 필요 없는 요청 (인사) | PASS | 2.59 | 0 | - | - |
-| S6 | Tool 이 필요 없는 요청 (사용법) | PASS | 2.0 | 0 | - | - |
-| S7 | 날씨 반영 + 도보 선호 | PASS | 7.68 | 10 | - | 베트남 쌀국수, 만남의 광장, 솔이네 |
-| S8 | 후속 요청 맥락 유지 | PASS | 5.64 | 16 | 1:next_batch | 정통일식 최수사 대게마을, 미네스시 |
-| S9 | 계획 저장 (Tool 아님) | PASS | 2.14 | 0 | - | - |
-| S10 | 같은 시간대 두 번째 저장 → 충돌 안내 | PASS | 2.64 | 0 | - | - |
+| S1 | 제약을 한 번에 충족 | PASS | 4.19 | 17 | - | 명가교동짬뽕(역삼역점), 고향마을, 정든김밥 |
+| S2 | 재계획이 필요한 요청 | PASS | 1.44 | 27 | 1:next_batch | 천하돈까스, 탄, 이태원천상(역삼점) |
+| S3 | 재계획 상한 도달 | PASS | 3.42 | 43 | 1:next_batch, 2:next_batch, 3:adjacent_area | - |
+| S4 | Tool 하나가 실패 (기상청 키 제거) | PASS | 3.38 | 16 | - | 뉴욕김치찌개, 야기카레, 소만옥 |
+| S5 | Tool 이 필요 없는 요청 (인사) | PASS | 0.01 | 0 | - | - |
+| S6 | Tool 이 필요 없는 요청 (사용법) | PASS | 0.01 | 0 | - | - |
+| S7 | 날씨 반영 + 도보 선호 | PASS | 3.75 | 16 | - | 베트남 쌀국수, 만남의 광장, 솔이네 |
+| S8 | 후속 요청 맥락 유지 | PASS | 3.67 | 27 | - | 정통일식 최수사 대게마을, 이태원천상(역삼점), 순남시래기(역삼점) |
+| S9 | 계획 저장 (Tool 아님) | PASS | 2.58 | 0 | - | - |
+| S10 | 같은 시간대 두 번째 저장 → 충돌 안내 | PASS | 2.44 | 0 | - | - |
 
 ## S1. 제약을 한 번에 충족
 
@@ -25,50 +25,56 @@
 - 기대 동작: 재계획 없이 예산 이하 메뉴가 확인된 식당 + 주변 카페 추천
 - 판정 기준: 추천 있음·재계획 없음 → **PASS**
 - 단계: analyze → plan → execute → judge → respond
-- Tool 호출: get_weather_context:ok, search_restaurant_candidates:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, search_nearby_cafes:ok, search_nearby_cafes(재사용):ok
+- Tool 호출: get_weather_context:ok, search_restaurant_candidates:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, search_nearby_cafes:ok, search_nearby_cafes:ok, search_nearby_cafes:ok, search_nearby_cafes:ok, search_nearby_cafes:ok
 - 재계획: 없음
-- 제외 후보 수: 4, 안내: 없음
+- 제외 후보 수: 0, 안내: 없음
 - 최종 응답:
 
 ```
-추천 식당은 다음과 같습니다:
-
-1. **명가교동짬뽕(역삼역점)** - 할리스 역삼역점 (직선거리: 36m)
-   - 중식 전문으로 다양한 메뉴가 있으며, 평일 10:30부터 22:00까지 영업합니다.
-
-2. **질할브로스(역삼점)** - 할리스 역삼역점 (직선거리: 36m)
-   - 양식 전문으로 합리적인 가격의 메뉴가 많으며, 평일 10:30부터 21:00까지 영업합니다.
-
-제외된 식당은 예산 판단이 불가하여 추천에서 제외되었습니다. 
-
-카페 영업시간·콘센트·와이파이·혼잡도는 확인되지 않았어요.
+🌤 11-20 12:00 예보: 2.0°C, 강수확률 0% (없음)
+조건에 맞는 코스 5개를 찾았어요.
+1. 명가교동짬뽕(역삼역점) — 역삼역에서 직선 48m(도보 약 1분 추정), 메뉴 예: 쟁반짜장 15,000원, 발사믹크림찹쌀탕수육(사천찹쌀/小) 15,000원, 영업 평일 10:30~22:00, 공휴일 11:00~20:30
+   ☕ 식당에서 직선 36m: 할리스 역삼역점 (http://place.map.kakao.com/804297391)
+2. 고향마을 — 역삼역에서 직선 157m(도보 약 4분 추정), 메뉴 예: 청국장 7,000원, 칼국수 7,000원, 영업 매일 10:00~22:30
+   ☕ 식당에서 직선 18m: 셋어스펠 (http://place.map.kakao.com/1435778970)
+3. 정든김밥 — 역삼역에서 직선 168m(도보 약 4분 추정), 메뉴 예: 스페셜정식 8,000원, 돈까스김치오므 7,000원, 영업 매일 00:00~24:00, 토요일 23:00~08:30
+   ☕ 식당에서 직선 16m: 터프커피 (http://place.map.kakao.com/233889658)
+4. 부산아지매국밥(역삼점) — 역삼역에서 직선 191m(도보 약 4분 추정), 메뉴 예: 술국 15,000원, 순대한접시 10,000원, 영업 평일 09:00~22:00, 주말 21:00~20:30
+   ☕ 식당에서 직선 33m: 메가MGC커피 역삼GFC점 (http://place.map.kakao.com/805389038)
+5. 원당뼈다귀감자탕(역삼점) — 역삼역에서 직선 222m(도보 약 5분 추정), 메뉴 예: 뼈해장국 8,000원, 코다리정식 8,000원, 영업 매일 00:00~24:00
+   ☕ 식당에서 직선 25m: 카페자스 역삼점 (http://place.map.kakao.com/16378444)
+카페 영업시간·콘센트·와이파이·혼잡도는 외부 데이터로 확인할 수 없어 방문 전 확인이 필요합니다.
 ```
 
 - 기대와 차이: 없음
 
 ## S2. 재계획이 필요한 요청
 
-- 요청: "역삼역에서 일식 1만 5천원 이하로 12시 점심" (세션 S2)
-- 기대 동작: 첫 상세조회 묶음에서 충족 0건 → 다음 묶음(또는 인접 역) 재계획 후 추천, 이미 호출한 Tool 재호출 없음
-- 판정 기준: 재계획 발생·중복 호출 없음 → **PASS**
+- 요청: "역삼역에서 일식 7,000원 이하로 12시 점심" (세션 S2)
+- 기대 동작: 첫 상세조회 묶음에서 충족 0건 → 다음 묶음 재계획 후 추천, 이미 호출한 Tool 재호출 없음
+- 판정 기준: 다음 묶음 재계획 후 추천·중복 호출 없음 → **PASS**
 - 단계: analyze → plan → execute → judge → replan → execute → judge → respond
-- Tool 호출: get_weather_context:ok, search_restaurant_candidates:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, search_nearby_cafes:ok, search_nearby_cafes:ok
+- Tool 호출: get_weather_context:ok, search_restaurant_candidates:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, search_nearby_cafes:ok, search_nearby_cafes:ok, search_nearby_cafes:ok, search_nearby_cafes:ok, search_nearby_cafes:ok
 - 재계획: 1:next_batch
-- 제외 후보 수: 10, 안내: 없음
+- 제외 후보 수: 15, 안내: 없음
 - 최종 응답:
 
 ```
-추천 식당은 다음과 같습니다.
-
-1. **정통일식 최수사 대게마을**  
-   - 카페: 메가MGC커피 역삼GFC점  
-   - 직선거리: 2m  
-
-2. **미네스시**  
-   - 카페: 엠엠티에이치일공사 역삼역점  
-   - 직선거리: 14m  
-
-카페 영업시간·콘센트·와이파이·혼잡도는 확인되지 않았어요.
+🌤 11-20 12:00 예보: 2.0°C, 강수확률 0% (없음)
+조건에 맞는 코스 5개를 찾았어요.
+1. 천하돈까스 — 역삼역에서 직선 440m(도보 약 9분 추정), 메뉴 예: 소유라멘 7,000원, 미소라멘 7,000원, 영업 매일 11:00~20:00
+   ☕ 식당에서 직선 33m: 돌스트 (http://place.map.kakao.com/1165981441)
+2. 탄 — 역삼역에서 직선 251m(도보 약 5분 추정), 메뉴 예: 까스동 7,000원, 해물우동 7,000원
+   ☕ 식당에서 직선 37m: 카페드나탈리 역삼점 (http://place.map.kakao.com/1734956714)
+   ⚠ 영업시간 미확인 — 12:00 영업 여부를 방문 전 확인 필요
+3. 이태원천상(역삼점) — 역삼역에서 직선 328m(도보 약 7분 추정), 메뉴 예: 야끼오니기리 7,000원, 시샤모구이 7,000원, 영업 평일 11:30~03:00, 토요일 18:00~23:30
+   ☕ 식당에서 직선 25m: 해피스마일 (http://place.map.kakao.com/959825127)
+4. 순남시래기(역삼점) — 역삼역에서 직선 342m(도보 약 7분 추정), 메뉴 예: 3代 시래기국 7,000원, 얼큰시래기국 7,000원, 영업 매일 11:00~23:00
+   ☕ 식당에서 직선 21m: 메가MGC커피 역삼대로점 (http://place.map.kakao.com/1580819006)
+5. 야마야(강남N타워점) — 역삼역에서 직선 369m(도보 약 8분 추정), 메뉴 예: 야채 난방 츠케 6,900원, 명란 주먹밥 6,500원
+   ☕ 식당에서 직선 0m: 수수커피 역삼점 (http://place.map.kakao.com/287001947)
+   ⚠ 영업시간 미확인 — 12:00 영업 여부를 방문 전 확인 필요
+카페 영업시간·콘센트·와이파이·혼잡도는 외부 데이터로 확인할 수 없어 방문 전 확인이 필요합니다.
 ```
 
 - 기대와 차이: 없음
@@ -79,16 +85,16 @@
 - 기대 동작: 재계획 3회 후 중단, 사유와 조건 조정 제안
 - 판정 기준: 재계획 3회·상한 사유·제안 → **PASS**
 - 단계: analyze → plan → execute → judge → replan → execute → judge → replan → execute → judge → replan → execute → judge → respond
-- Tool 호출: get_weather_context:ok, search_restaurant_candidates:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok
-- 재계획: 1:next_batch, 2:next_batch, 3:next_batch / 중단 사유: 재계획 상한(3회)에 도달
-- 제외 후보 수: 24, 안내: 없음
+- Tool 호출: get_weather_context:ok, search_restaurant_candidates:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, search_restaurant_candidates:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok
+- 재계획: 1:next_batch, 2:next_batch, 3:adjacent_area / 중단 사유: 재계획 상한(3회)에 도달
+- 제외 후보 수: 40, 안내: 없음
 - 최종 응답:
 
 ```
-🌤 11-19 12:00 예보: 4.0°C, 강수확률 30% (없음)
+🌤 11-20 12:00 예보: 2.0°C, 강수확률 0% (없음)
 조건을 모두 만족하는 식당을 찾지 못했어요.
 사유: 재계획 상한(3회)에 도달
-제외한 예: 누들톡(역삼역점)(예산 판단 불가: 가격 미확인 — 1,000원 이하 메뉴가 있는지 매장에서 확인 필요); 다미분식(예산 판단 불가: 가격 미확인 — 1,000원 이하 메뉴가 있는지 매장에서 확인 필요); 만권화밥(역삼점)(예산 판단 불가: 가격 미확인 — 1,000원 이하 메뉴가 있는지 매장에서 확인 필요)
+제외한 예: 명가교동짬뽕(역삼역점)(예산 조건 불충족: 최저가 5,500원 > 예산 1,000원); 파스토보이(역삼점)(예산 판단 불가: 가격 미확인 — 1,000원 이하 메뉴가 있는지 매장에서 확인 필요); 고향마을(예산 조건 불충족: 최저가 7,000원 > 예산 1,000원)
 이렇게 바꿔 보시겠어요? 예산을 6,000원 정도로 올려 보기 / 가격·영업시간이 확인된 식당이 적어서, 조건을 줄이면 더 많은 후보를 판단할 수 있어요
 ```
 
@@ -100,29 +106,25 @@
 - 기대 동작: 날씨 Tool 이 MISSING_API_KEY 로 실패해도 나머지 단계 진행, 안내 표시, 기본 정책으로 추천 제공
 - 판정 기준: 실패 Tool 존재·추천 계속·안내 → **PASS**
 - 단계: analyze → plan → execute → judge → respond
-- Tool 호출: get_weather_context:MISSING_API_KEY, search_restaurant_candidates:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, search_nearby_cafes:ok, search_nearby_cafes:ok, search_nearby_cafes(재사용):ok
+- Tool 호출: get_weather_context:MISSING_API_KEY, search_restaurant_candidates:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, search_nearby_cafes:ok, search_nearby_cafes(재사용):ok, search_nearby_cafes:ok, search_nearby_cafes:ok, search_nearby_cafes:ok
 - 재계획: 없음
 - 제외 후보 수: 2, 안내: 날씨 조회: API 키가 설정되지 않아 확인하지 못했습니다
 - 최종 응답:
 
 ```
-추천 식당은 다음과 같습니다.
-
-1. **베트남 쌀국수**  
-   - 카페: 하마커피  
-   - 직선거리: 65m  
-
-2. **만남의 광장**  
-   - 카페: 앤디캔디솜사탕  
-   - 직선거리: 50m  
-
-3. **솔이네**  
-   - 카페: 앤디캔디솜사탕  
-   - 직선거리: 50m  
-
-*핫플와플*과 *고구마명가(강남역점)*은 식사 메뉴 조건을 충족하지 않아 제외되었습니다.
-
-카페 영업시간·콘센트·와이파이·혼잡도는 확인되지 않았어요.
+조건에 맞는 코스 5개를 찾았어요.
+1. 뉴욕김치찌개 — 강남역에서 직선 155m(도보 약 4분 추정), 영업 평일 11:30~21:30
+   ☕ 식당에서 직선 4m: 동락커피점 EXP (http://place.map.kakao.com/723298019)
+2. 야기카레 — 강남역에서 직선 155m(도보 약 4분 추정), 영업 매일 11:00~21:00, 주말 11:00~21:00
+   ☕ 식당에서 직선 4m: 동락커피점 EXP (http://place.map.kakao.com/723298019)
+3. 소만옥 — 강남역에서 직선 160m(도보 약 4분 추정), 영업 매일 11:00~21:30
+   ☕ 식당에서 직선 32m: 커피빈 삼성전자강남사옥점 (http://place.map.kakao.com/10827085)
+4. 써브웨이(강남역점) — 강남역에서 직선 204m(도보 약 4분 추정), 영업 매일 08:00~22:00
+   ☕ 식당에서 직선 2m: 소과당 (http://place.map.kakao.com/1154197674)
+5. 무한리필 몽블리(강남역11번출구점) — 강남역에서 직선 228m(도보 약 5분 추정), 영업 매일 11:30~23:30
+   ☕ 식당에서 직선 26m: 보노 (http://place.map.kakao.com/97662698)
+카페 영업시간·콘센트·와이파이·혼잡도는 외부 데이터로 확인할 수 없어 방문 전 확인이 필요합니다.
+ℹ 날씨 조회: API 키가 설정되지 않아 확인하지 못했습니다
 ```
 
 - 기대와 차이: 없음
@@ -139,7 +141,7 @@
 - 최종 응답:
 
 ```
-안녕하세요! 밥카공이에요. 강남역·역삼역에서 식사하고 카공할 곳을 함께 추천해 드릴게요. 어디서 무엇을 드시고 싶은지 말씀해 주세요.
+안녕하세요! 밥카공이에요. 역삼역(SSAFY) 주변 6개 역(역삼·강남·언주·신논현·선릉·선정릉)에서 식사하고 카공할 곳을 함께 추천해 드릴게요. 어디서 무엇을 드시고 싶은지 말씀해 주세요.
 ```
 
 - 기대와 차이: 없음
@@ -156,7 +158,7 @@
 - 최종 응답:
 
 ```
-밥카공은 강남역·역삼역 주변에서 식사할 곳과 식사 후 카공할 카페를 함께 추천해요.
+밥카공은 역삼역(SSAFY) 주변 6개 역(역삼·강남·언주·신논현·선릉·선정릉)에서 식사할 곳과 식사 후 카공할 카페를 함께 추천해요.
 • 예: "강남역에서 1만 5천원 이하로 12시에 점심 먹고 카공할래"
 • 조건: 날짜·시각, 음식 종류, 예산, 가까운 곳 선호, 몇 m/몇 분 이내
 • 후속: "같은 조건에서 한식 말고 일식으로", "이 코스로 저장해줘"
@@ -171,24 +173,30 @@
 - 기대 동작: 기상청 예보 조회, 가까운 곳 선호 반영(카페 반경 300m), 말한 날씨와 예보가 다르면 안내
 - 판정 기준: 날씨 조회 성공·카페 반경 300m → **PASS**
 - 단계: analyze → plan → execute → judge → respond
-- Tool 호출: get_weather_context:ok, search_restaurant_candidates:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, search_nearby_cafes:ok, search_nearby_cafes:ok, search_nearby_cafes(재사용):ok
+- Tool 호출: get_weather_context:ok, search_restaurant_candidates:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, search_nearby_cafes:ok, search_nearby_cafes:ok, search_nearby_cafes(재사용):ok, search_nearby_cafes:ok, search_nearby_cafes:ok
 - 재계획: 없음
-- 제외 후보 수: 2, 안내: 말씀하신 날씨(비)와 달리 기상청 예보는 강수확률 30%·없음예요. 가까운 곳 선호는 그대로 반영했어요.
+- 제외 후보 수: 2, 안내: 말씀하신 날씨(비)와 달리 기상청 예보는 강수확률 0%·없음예요. 가까운 곳 선호는 그대로 반영했어요.
 - 최종 응답:
 
 ```
-추천 식당은 다음과 같습니다:
-
-1. **베트남 쌀국수** - 하마커피 (직선거리: 65m)
-2. **만남의 광장** - 앤디캔디솜사탕 (직선거리: 50m)
-3. **솔이네** - 앤디캔디솜사탕 (직선거리: 50m)
-
-각 식당의 영업시간은 다음과 같습니다:
-- 베트남 쌀국수: 평일 09:00~21:00, 토요일 09:00~21:00 (일요일 휴무)
-- 만남의 광장: 영업시간 미확인 — 12:00 영업 여부를 방문 전 확인 필요
-- 솔이네: 영업시간 미확인 — 12:00 영업 여부를 방문 전 확인 필요
-
-카페 영업시간·콘센트·와이파이·혼잡도는 확인되지 않았어요.
+🌤 11-20 12:00 예보: 2.0°C, 강수확률 0% (없음)
+조건에 맞는 코스 5개를 찾았어요.
+1. 베트남 쌀국수 — 강남역에서 직선 65m(도보 약 2분 추정), 영업 평일 09:00~21:00, 토요일 09:00~21:00
+   ☕ 식당에서 직선 0m: 하마커피 (http://place.map.kakao.com/1433125498)
+2. 만남의 광장 — 강남역에서 직선 50m(도보 약 1분 추정)
+   ☕ 식당에서 직선 24m: 앤디캔디솜사탕 (http://place.map.kakao.com/1484462247)
+   ⚠ 영업시간 미확인 — 12:00 영업 여부를 방문 전 확인 필요
+3. 솔이네 — 강남역에서 직선 50m(도보 약 1분 추정)
+   ☕ 식당에서 직선 24m: 앤디캔디솜사탕 (http://place.map.kakao.com/1484462247)
+   ⚠ 영업시간 미확인 — 12:00 영업 여부를 방문 전 확인 필요
+4. 서초강산 — 강남역에서 직선 76m(도보 약 2분 추정)
+   ☕ 식당에서 직선 5m: 앤디캔디솜사탕 (http://place.map.kakao.com/1484462247)
+   ⚠ 영업시간 미확인 — 12:00 영업 여부를 방문 전 확인 필요
+5. 마녀떡볶이 — 강남역에서 직선 77m(도보 약 2분 추정)
+   ☕ 식당에서 직선 6m: 앤디캔디솜사탕 (http://place.map.kakao.com/1484462247)
+   ⚠ 영업시간 미확인 — 12:00 영업 여부를 방문 전 확인 필요
+카페 영업시간·콘센트·와이파이·혼잡도는 외부 데이터로 확인할 수 없어 방문 전 확인이 필요합니다.
+ℹ 말씀하신 날씨(비)와 달리 기상청 예보는 강수확률 0%·없음예요. 가까운 곳 선호는 그대로 반영했어요.
 ```
 
 - 기대와 차이: 없음
@@ -198,24 +206,26 @@
 - 요청: "같은 조건에서 한식 말고 일식으로 바꿔줘" (세션 S1)
 - 기대 동작: S1 의 지역·예산·시각 유지, 음식 종류만 일식으로 변경
 - 판정 기준: 변경 필드만 갱신 → **PASS**
-- 단계: analyze → plan → execute → judge → replan → execute → judge → respond
-- Tool 호출: get_weather_context:ok, search_restaurant_candidates:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, search_nearby_cafes:ok, search_nearby_cafes:ok
-- 재계획: 1:next_batch
+- 단계: analyze → plan → execute → judge → respond
+- Tool 호출: get_weather_context:ok, search_restaurant_candidates:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, get_restaurant_details:ok, search_nearby_cafes:ok, search_nearby_cafes:ok, search_nearby_cafes:ok, search_nearby_cafes:ok, search_nearby_cafes:ok
+- 재계획: 없음
 - 제외 후보 수: 10, 안내: 없음
 - 최종 응답:
 
 ```
-추천 식당은 다음과 같습니다:
-
-1. **정통일식 최수사 대게마을**  
-   - 카페: 메가MGC커피 역삼GFC점  
-   - 직선거리: 186m  
-
-2. **미네스시**  
-   - 카페: 엠엠티에이치일공사 역삼역점  
-   - 직선거리: 212m  
-
-카페 영업시간·콘센트·와이파이·혼잡도는 확인되지 않았어요.
+🌤 11-20 12:00 예보: 2.0°C, 강수확률 0% (없음)
+조건에 맞는 코스 5개를 찾았어요.
+1. 정통일식 최수사 대게마을 — 역삼역에서 직선 186m(도보 약 4분 추정), 메뉴 예: 어린이 정식 15,000원, 알밥 15,000원, 영업 매일 11:00~22:30
+   ☕ 식당에서 직선 2m: 메가MGC커피 역삼GFC점 (http://place.map.kakao.com/805389038)
+2. 이태원천상(역삼점) — 역삼역에서 직선 328m(도보 약 7분 추정), 메뉴 예: 덴동(튀김덮밥) 15,000원, 덴뿌라우동 15,000원, 영업 평일 11:30~03:00, 토요일 18:00~23:30
+   ☕ 식당에서 직선 25m: 해피스마일 (http://place.map.kakao.com/959825127)
+3. 순남시래기(역삼점) — 역삼역에서 직선 342m(도보 약 7분 추정), 메뉴 예: 도토리 해물파전 15,000원, 바삭바삭 녹두전 15,000원, 영업 매일 11:00~23:00
+   ☕ 식당에서 직선 21m: 메가MGC커피 역삼대로점 (http://place.map.kakao.com/1580819006)
+4. 바다풍경 — 역삼역에서 직선 389m(도보 약 8분 추정), 메뉴 예: 회덮밥 15,000원, 멍게비빔밥 15,000원, 영업 매일 12:00~22:30
+   ☕ 식당에서 직선 42m: 반하나푸딩 (http://place.map.kakao.com/444435562)
+5. 미네스시 — 역삼역에서 직선 212m(도보 약 5분 추정), 메뉴 예: 청하 10,000원, 아사히 10,000원, 영업 매일 11:30~22:30
+   ☕ 식당에서 직선 14m: 엠엠티에이치일공사 역삼역점 (http://place.map.kakao.com/1876904370)
+카페 영업시간·콘센트·와이파이·혼잡도는 외부 데이터로 확인할 수 없어 방문 전 확인이 필요합니다.
 ```
 
 - 기대와 차이: 없음
@@ -232,7 +242,7 @@
 - 최종 응답:
 
 ```
-계획을 저장했어요: 정통일식 최수사 대게마을 + 메가MGC커피 역삼GFC점 — 2026-11-19 12:00~15:00
+계획을 저장했어요: 정통일식 최수사 대게마을 + 메가MGC커피 역삼GFC점 — 2026-11-20 12:00~15:00
 ℹ 종료 시각은 식사 60분 + 카공 120분 기준 15:00로 저장했어요. 계획 화면에서 수정할 수 있어요.
 ```
 
@@ -250,7 +260,7 @@
 - 최종 응답:
 
 ```
-계획을 저장했어요: 미네스시 + 엠엠티에이치일공사 역삼역점 — 2026-11-19 12:00~15:00
+계획을 저장했어요: 이태원천상(역삼점) + 해피스마일 — 2026-11-20 12:00~15:00
 ℹ 종료 시각은 식사 60분 + 카공 120분 기준 15:00로 저장했어요. 계획 화면에서 수정할 수 있어요.
 ⚠ 같은 날 시간이 겹치는 계획이 있어요 (저장은 완료): 정통일식 최수사 대게마을 + 메가MGC커피 역삼GFC점(12:00~15:00)
 ```
