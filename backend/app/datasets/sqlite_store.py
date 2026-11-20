@@ -2,7 +2,9 @@
 
 - 데이터셋마다 파일 하나: {cache_dir}/{name}.sqlite
 - 표 rows(key, lat, lng, data): key 는 출처 ID(같은 key 의 여러 행 허용 — 메뉴처럼), data 는 원본/정규화 JSON
-- 다시 만들 때는 임시 파일에 쓴 뒤 교체한다 (만드는 중에도 기존 파일로 응답 가능, 실패해도 기존 파일 유지)
+- 다시 만들 때는 프로세스별 임시 파일에 쓴 뒤 원자적으로 교체한다 (만드는 중에도 기존 파일로 응답 가능, 실패해도 기존 파일 유지)
+- 갱신은 프로세스 간 파일 잠금({name}.sqlite.lock, fcntl)과 스레드 잠금으로 한 번에 하나만. 잠금을 얻은 뒤 TTL 을 다시 확인해
+  다른 프로세스가 방금 만든 데이터가 있으면 다시 수집하지 않는다. 읽기는 잠금 없이 한다.
 - 신선도는 JsonCache 와 같은 TTL·시계를 쓴다 (meta 표의 fetched_at)
 """
 from __future__ import annotations
@@ -12,6 +14,8 @@ import math
 import os
 import sqlite3
 import threading
+import uuid
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Iterable, Iterator
@@ -28,6 +32,20 @@ _locks_guard = threading.Lock()
 def _lock_for(path: Path) -> threading.Lock:
     with _locks_guard:
         return _build_locks.setdefault(str(path), threading.Lock())
+
+
+@contextmanager
+def _process_lock(path: Path):
+    """프로세스 간 배타 잠금 (POSIX fcntl). 잠금 파일은 지우지 않는다 (지우면 다른 프로세스와 다른 inode 를 잠글 수 있음)."""
+    import fcntl
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "a+") as fh:
+        fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
 
 
 class SqliteRows:
@@ -66,8 +84,8 @@ class SqliteRows:
         meta = self.meta()
         if meta is not None:
             return meta
-        with _lock_for(self.path):
-            meta = self.meta()  # 다른 스레드가 방금 만들었을 수 있음
+        with _lock_for(self.path), _process_lock(self.path.with_suffix(".sqlite.lock")):
+            meta = self.meta()  # 잠금을 기다리는 동안 다른 스레드·프로세스가 만들었을 수 있음
             if meta is not None:
                 return meta
             rows, finish = builder()
@@ -76,9 +94,7 @@ class SqliteRows:
 
     def _write(self, rows: Iterable[Row], finish: Callable[[], dict[str, Any]]) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = self.path.with_suffix(".sqlite.tmp")
-        if tmp.exists():
-            tmp.unlink()
+        tmp = self.path.with_name(f"{self.path.name}.{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp")  # 프로세스마다 다른 임시 파일
         con = self._connect(tmp)
         try:
             con.execute("CREATE TABLE rows (key TEXT NOT NULL, lat REAL, lng REAL, data TEXT NOT NULL)")
