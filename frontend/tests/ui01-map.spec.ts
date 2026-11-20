@@ -194,3 +194,17 @@ describe('역 기준점 핀', () => {
     expect(w.findAll('.svg-pin.station .station-label').map((t) => t.text())).toEqual(['선릉역'])
   })
 })
+
+describe('SVG 대체 지도 핀 키보드 (Codex 2차 검증 결함 7)', () => {
+  it('Enter 와 Space 모두 정보 카드를 연다', async () => {
+    const w = mount(MapPanel, { props: { recommendations: [makeRec()], selected: 0 } })
+    await flushPromises()
+    const pin = w.find('.svg-pin.meal')
+    expect(pin.attributes('tabindex')).toBe('0')
+    await pin.trigger('keydown', { key: 'Enter' })
+    await pin.trigger('keydown', { key: ' ' })
+    const focusEvents = w.emitted('focus')!
+    expect(focusEvents).toHaveLength(2)
+    expect(focusEvents.every((e) => (e[0] as any).kind === 'meal')).toBe(true)
+  })
+})

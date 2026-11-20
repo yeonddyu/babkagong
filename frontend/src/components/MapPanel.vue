@@ -257,7 +257,7 @@ const fallbackLine = computed(() => {
            :transform="`translate(${p.x} ${p.y})`" :role="p.refs.length ? 'button' : undefined"
            :tabindex="p.refs.length && interactive ? 0 : undefined"
            :aria-label="p.refs.length ? `${courseLabel(p)}번 코스 ${p.kind === 'meal' ? '식당' : '카페'} ${p.names.join(', ')}` : p.names[0]"
-           @click="pick(p)" @keydown.enter.prevent="pick(p)">
+           @click="pick(p)" @keydown.enter.prevent="pick(p)" @keydown.space.prevent="pick(p)">
           <title>{{ p.names.join(', ') }}</title>
           <circle :r="p.kind === 'station' || p.kind === 'exit' ? 7 : p.kind === 'meal' ? (p.courses.length > 1 ? 19 : 15) : p.kind === 'alt' ? 8 : p.attached ? 9 : 11" />
           <text v-if="p.kind === 'meal'" text-anchor="middle" dy="5">{{ courseLabel(p) }}</text>

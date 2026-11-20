@@ -40,6 +40,19 @@ const listEl = ref<HTMLElement | null>(null)
 const liveEvents = ref<RunEvent[]>([])
 const selected = computed(() => courseState.selected)
 const mobileTab = ref<'chat' | 'map'>('chat')
+const tabChat = ref<HTMLButtonElement | null>(null)
+const tabMap = ref<HTMLButtonElement | null>(null)
+// 탭 키보드 조작 (WAI-ARIA 탭 패턴): 좌우 방향키·Home·End 로 포커스 이동과 함께 탭 전환
+function onTabKey(e: KeyboardEvent) {
+  const order = ['chat', 'map'] as const
+  const i = order.indexOf(mobileTab.value)
+  const next = e.key === 'ArrowRight' ? order[(i + 1) % 2] : e.key === 'ArrowLeft' ? order[(i + 1) % 2]
+    : e.key === 'Home' ? 'chat' : e.key === 'End' ? 'map' : null
+  if (!next) return
+  e.preventDefault()
+  mobileTab.value = next
+  nextTick(() => (next === 'chat' ? tabChat.value : tabMap.value)?.focus())
+}
 const mood = computed(() => weatherMood(latest.value?.weather))
 
 // 오른쪽 패널에는 가장 최근의 추천 결과만 보여 준다 (저장·인사 응답은 이전 코스를 유지)
@@ -114,14 +127,16 @@ async function scroll() {
 
 <template>
   <div class="workspace" :data-tab="mobileTab" :data-weather="mood ?? 'none'">
-    <div class="mobile-tabs" role="tablist" aria-label="화면 전환">
-      <button role="tab" :aria-selected="mobileTab === 'chat'" :class="{ on: mobileTab === 'chat' }" @click="mobileTab = 'chat'">대화·추천</button>
-      <button role="tab" :aria-selected="mobileTab === 'map'" :class="{ on: mobileTab === 'map' }" @click="mobileTab = 'map'">
+    <div class="mobile-tabs" role="tablist" aria-label="화면 전환" @keydown="onTabKey">
+      <button id="tab-chat" ref="tabChat" role="tab" aria-controls="panel-chat" :aria-selected="mobileTab === 'chat'"
+              :tabindex="mobileTab === 'chat' ? 0 : -1" :class="{ on: mobileTab === 'chat' }" @click="mobileTab = 'chat'">대화·추천</button>
+      <button id="tab-map" ref="tabMap" role="tab" aria-controls="panel-map" :aria-selected="mobileTab === 'map'"
+              :tabindex="mobileTab === 'map' ? 0 : -1" :class="{ on: mobileTab === 'map' }" @click="mobileTab = 'map'">
         지도<span v-if="latest?.recommendations.length" class="count">{{ latest.recommendations.length }}</span>
       </button>
     </div>
 
-    <div class="left">
+    <div id="panel-chat" class="left" role="tabpanel" aria-labelledby="tab-chat">
       <WeatherMascot :weather="latest?.weather" :has-result="!!latest" :policy="latest?.weather_policy" />
       <div class="toolbar card">
         <div class="toolbar-head">
@@ -194,7 +209,7 @@ async function scroll() {
                    @select="selectCourse" @save="saveCourse" @more="send('다른 곳 더 보여줘')" @show-map="showMap" />
     </div>
 
-    <aside class="mapside" aria-label="지도">
+    <aside id="panel-map" class="mapside" role="tabpanel" aria-labelledby="tab-map">
       <MapPanel v-if="latest?.recommendations.length" :recommendations="latest.recommendations" :selected="selected"
                 :cafe-choice="courseState.cafeChoice" :focus="courseState.focus" :origin="latest.origin"
                 @select="selectCourse" @focus="focusPlace" @choose-cafe="chooseCafe" />
