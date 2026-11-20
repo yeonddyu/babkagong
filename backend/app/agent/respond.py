@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import json
+import re
 import logging
 from dataclasses import asdict
 from typing import Any
@@ -170,7 +171,7 @@ def _template_message(intent: str, body: dict[str, Any]) -> str:
     if w:
         lines.append(f"🌤 {w['forecast_datetime'][5:16].replace('T', ' ')} 예보: {w['temperature_c']}°C, 강수확률 {w['precipitation_probability']}% ({w['precipitation_type']})")
     if recs:
-        lines.append(f"조건에 맞는 코스 {len(recs)}개를 찾았어요.")
+        lines.append(_count_line(recs))
         for i, r in enumerate(recs, 1):
             menu = ", ".join(f"{m['name']} {_won(m['price_krw'])}" for m in r["matched_menus"][:2])
             line = f"{i}. {r['name']} — {r.get('distance_from') or '역'}에서 직선 {r['distance_m']}m(도보 약 {r['estimated_walk_minutes']}분 추정)"
@@ -202,6 +203,15 @@ def _template_message(intent: str, body: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _count_line(recs: list[dict[str, Any]]) -> str:
+    """완성 코스(식당 + 확인된 카페) 개수만 '코스' 로 센다. 카페를 확인하지 못한 식당은 따로 알린다."""
+    full = sum(1 for r in recs if r.get("cafes"))
+    if full == len(recs):
+        return f"조건에 맞는 코스 {full}개를 찾았어요."
+    return (f"조건에 맞는 식당 {len(recs)}곳을 찾았어요. 식사 후 카페까지 확인된 코스는 {full}개이고, "
+            f"{len(recs) - full}곳은 주변 카페를 확인하지 못했어요.")
+
+
 def _summary(intent: str, body: dict[str, Any]) -> str | None:
     """대화창용 짧은 요약 (코드 생성, 확정된 값만). 자세한 내용은 카드·지도에 있다.
     추천 결과가 없거나 추천 의도가 아니면 None — 화면은 전체 메시지를 보여 준다."""
@@ -210,7 +220,7 @@ def _summary(intent: str, body: dict[str, Any]) -> str | None:
         return None
     top = recs[0]
     lead = "앞서 보여 드린 곳을 빼고 " if body.get("more") else ""
-    lines = [f"{lead}조건에 맞는 코스 {len(recs)}개를 찾았어요."]
+    lines = [lead + _count_line(recs)]
     meal = f"1순위 **{top['name']}**"
     if top.get("distance_m") is not None:
         meal += f" · {top.get('distance_from') or '역'}에서 직선 {top['distance_m']}m"
@@ -218,6 +228,8 @@ def _summary(intent: str, body: dict[str, Any]) -> str | None:
     if top.get("cafes"):
         c = top["cafes"][0]
         lines.append(f"식사 후 카페 **{c['name']}**" + (f" · 식당에서 직선 {c['distance_m']}m" if c.get("distance_m") is not None else ""))
+    else:
+        lines.append("식사 후 카페: 주변 카페를 확인하지 못했어요")
     lines.append("메뉴·가격·다른 카페 후보는 카드와 지도에서 확인해 주세요.")
     if body.get("disclaimer"):
         lines.append(body["disclaimer"])
@@ -243,6 +255,31 @@ def _llm_message_ok(text: str, recommendations: list[dict[str, Any]], body: dict
         return False
     if body.get("disclaimer") and "전문가" not in text:
         return False
+    return _llm_facts_only(text, body)
+
+
+# 확인할 수 없는 단정 (가격·편의시설·품질·분위기). '확인되지 않'·'미확인'·'모름' 이 붙은 절은 안내로 보고 허용한다.
+UNVERIFIABLE_CLAIM = re.compile(
+    r"콘센트|와이파이|wi-?fi|주차|좌석|자리|보장|확실|무료|저렴|가성비|합리적|맛있|맛집|인기|유명|분위기|조용|쾌적|넓|편안|친절|혼잡하지",
+    re.IGNORECASE)
+NEGATED = re.compile(r"확인되지 않|확인하지 못|미확인|모름|알 수 없|확인 필요")
+
+
+def _numbers(text: str) -> set[str]:
+    text = re.sub(r"(?<=\d),(?=\d{3})", "", text)  # 9,000 → 9000
+    return {n.lstrip("0") or "0" for n in re.findall(r"\d+(?:\.\d+)?", text)}
+
+
+def _llm_facts_only(text: str, body: dict[str, Any]) -> bool:
+    """LLM 문장의 모든 숫자가 확정 결과에 있고, 확인할 수 없는 단정이 없을 때만 True."""
+    facts = {k: body.get(k) for k in ("weather", "recommendations", "excluded", "criteria", "notices", "disclaimer")}
+    allowed = _numbers(json.dumps(facts, ensure_ascii=False, default=str))
+    allowed |= {str(i) for i in range(0, len(body.get("recommendations") or []) + 1)}  # 순번·개수
+    if not _numbers(text) <= allowed:
+        return False
+    for clause in re.split(r"[.\n!?,]", text):
+        if UNVERIFIABLE_CLAIM.search(clause) and not NEGATED.search(clause):
+            return False
     return True
 
 
